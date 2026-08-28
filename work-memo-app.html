@@ -113,11 +113,22 @@
   .calcell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text);border-radius:14px;cursor:pointer;position:relative;}
   .calcell.empty{color:var(--empty);cursor:default;}
   .calcell.has{font-weight:600;}
-  .calcell.has::after{content:"";position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent);}
+  .calcell .calmark{position:absolute;bottom:3px;left:0;right:0;display:flex;justify-content:center;gap:2px;}
+  .calcell .calmark span{width:4px;height:4px;border-radius:50%;}
+  .cm-rec{background:var(--accent);}
+  .cm-term{background:var(--green);}
+  .cm-festival{background:var(--orange);}
+  .cm-custom{background:#7C5CFC;}
   .calcell.today{background:var(--accent);color:#fff;font-weight:600;}
-  .calcell.today.has::after{background:#fff;}
   .calcell.sel{outline:2px solid var(--accent);outline-offset:-2px;}
   .daypanel{display:flex;flex-direction:column;gap:4px;}
+  .daymarks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .daymark{font-size:11px;font-weight:600;padding:3px 9px;border-radius:8px;display:inline-flex;align-items:center;}
+  .dm-term{background:var(--green-soft);color:var(--green);}
+  .dm-festival{background:var(--orange-soft);color:var(--orange);}
+  .dm-custom{background:#EFEAFF;color:#5B3DF2;}
+  .dm-del{margin-left:5px;cursor:pointer;opacity:.65;font-weight:700;}
+  .dm-del:active{opacity:1;}
   /* stats */
   .period{background:var(--accent-soft);border-radius:14px;padding:8px 12px;color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;}
   .metric-row{display:flex;gap:12px;}
@@ -354,11 +365,24 @@
       <button class="lb-close" id="lbClose">关闭</button>
     </div>
   </div>
+
+  <!-- EVENT MODAL (custom important day) -->
+  <div class="modal-overlay" id="eventModal">
+    <div class="modal-card">
+      <div class="mtitle" id="eventModalTitle">添加重要日子</div>
+      <input type="text" id="eventName" placeholder="如：妈妈生日" />
+      <input type="text" id="eventDate" placeholder="YYYY-MM-DD" />
+      <div class="modal-actions">
+        <button id="eventCancel">取消</button>
+        <button class="primary" id="eventSave">保存</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks } from './src/app-core.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
@@ -385,7 +409,8 @@ var DB = {
     r7:{type:'plan',   folderId:'study',    title:'完成《设计心理学》第 3 章', date:'2026-08-27', time:'20:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
     r8:{type:'review', folderId:'study',    title:'复盘：英语口语练习',   date:'2026-08-24', time:'22:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
     r9:{type:'plan',   folderId:'study',    title:'整理 LeetCode 错题集', date:'2026-08-22', time:'21:00', reminder:null, tags:[], image:null, checklist:[], body:''}
-  }
+  },
+  events: []
 };
 function childrenOf(id){ var r=[]; for(var k in DB.folders){ if(DB.folders[k].parent===id) r.push(k); } return r; }
 function recordsOf(id){ var r=[]; for(var k in DB.records){ if(DB.records[k].folderId===id) r.push(k); } return r; }
@@ -401,13 +426,13 @@ var LS_KEY = 'work-memo-db-v' + DB_VERSION;
     var raw = localStorage.getItem(LS_KEY);
     if(raw){
       var parsed = JSON.parse(raw);
-      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; }
+      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; if(parsed.events) DB.events = parsed.events; }
     }
   } catch(e){}
 })();
 function saveDB(){
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records}));
+    localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records, events:DB.events}));
   } catch(e){
     toast('保存失败：本地存储空间不足（图片可能过多）');
   }
@@ -558,13 +583,27 @@ function renderCalendar(){
       if(calYear===tY && calMonth+1===tM && d===tD) cell.classList.add('today');
       if(dated[d]) cell.classList.add('has');
       if(d===calSelected) cell.classList.add('sel');
+      var mk=getDayMarks(calYear, calMonth+1, d, DB.events);
+      var dots=[];
+      if(dated[d]) dots.push('rec');
+      mk.terms.forEach(function(){ dots.push('term'); });
+      mk.festivals.forEach(function(){ dots.push('festival'); });
+      mk.customs.forEach(function(){ dots.push('custom'); });
+      if(dots.length){ var md=document.createElement('div'); md.className='calmark'; md.innerHTML=dots.map(function(c){ return '<span class="cm-'+c+'"></span>'; }).join(''); cell.appendChild(md); }
       cell.setAttribute('data-day', d);
     }
     grid.appendChild(cell);
   });
   var recs = allRecords().filter(function(k){ var r=DB.records[k]; if(!r.date) return false; var pp=r.date.split('-'); return parseInt(pp[0],10)===calYear && parseInt(pp[1],10)===calMonth+1 && parseInt(pp[2],10)===calSelected; });
   var wd=['日','一','二','三','四','五','六'][new Date(calYear,calMonth,calSelected).getDay()];
-  document.getElementById('dayPanel').innerHTML='<div class="t-section">'+calYear+'年'+(calMonth+1)+'月'+calSelected+'日 · 周'+wd+'</div><div class="t-meta">当日 '+recs.length+' 条记录</div>';
+  var mk=getDayMarks(calYear, calMonth+1, calSelected, DB.events);
+  var markItems=[];
+  mk.terms.forEach(function(t){ markItems.push({label:t, cls:'dm-term'}); });
+  mk.festivals.forEach(function(t){ markItems.push({label:t, cls:'dm-festival'}); });
+  mk.customs.forEach(function(e){ markItems.push({label:e.name, cls:'dm-custom', id:e.id}); });
+  var markHtml='';
+  if(markItems.length){ markHtml='<div class="daymarks">'+markItems.map(function(it){ return '<span class="daymark '+it.cls+'">'+(it.id?'<span class="dm-del" data-del-event="'+it.id+'">×</span>':'')+it.label+'</span>'; }).join('')+'</div>'; }
+  document.getElementById('dayPanel').innerHTML='<div class="t-section">'+calYear+'年'+(calMonth+1)+'月'+calSelected+'日 · 周'+wd+'</div><div class="t-meta">当日 '+recs.length+' 条记录</div>'+markHtml+'<div class="row-center" style="margin-top:8px"><span class="link-blue" data-add-event>＋ 添加重要日子</span></div>';
   var html = recs.map(function(k){
     var r=DB.records[k];
     return '<div class="rec" data-rec="'+k+'"><div class="left"><div class="badge '+r.type+'">'+(r.type==='plan'?'计划':'复盘')+'</div><div class="rtext"><div class="t-rec-title">'+r.title+'</div><div class="t-meta">'+r.time+'</div></div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
@@ -659,6 +698,10 @@ document.getElementById('app').addEventListener('click', function(e){
   var cj=e.target.closest('[data-cal-jump]'); if(cj){ openPromptModal('跳转到年月', '格式 YYYY-MM', calYear+'-'+String(calMonth+1).padStart(2,'0'), function(v){ if(v && /^\d{4}-\d{1,2}$/.test(v)){ var pp=v.split('-'); var yy=parseInt(pp[0],10), mm=parseInt(pp[1],10)-1; if(yy>=1970 && yy<=2100 && mm>=0 && mm<=11){ calYear=yy; calMonth=mm; calSelected=1; renderCalendar(); } } }); return; }
   // calendar day
   var day=e.target.closest('.calcell[data-day]'); if(day){ calSelected=parseInt(day.getAttribute('data-day'),10); renderCalendar(); return; }
+  // calendar: add custom important day
+  var ae=e.target.closest('[data-add-event]'); if(ae){ openEventModal(); return; }
+  // calendar: delete custom important day
+  var de=e.target.closest('[data-del-event]'); if(de){ deleteCustomEvent(de.getAttribute('data-del-event')); return; }
   // stats tag filter
   var tag=e.target.closest('[data-tag]'); if(tag){ document.getElementById('searchInput').value=tag.getAttribute('data-tag'); renderSearch(tag.getAttribute('data-tag')); show('search'); return; }
   // editor save
@@ -840,6 +883,29 @@ document.getElementById('lbClose').addEventListener('click', closeLightbox);
 document.getElementById('lightbox').addEventListener('click', function(e){ if(e.target===this || e.target.classList.contains('lightbox-hint')) closeLightbox(); });
 document.getElementById('lbReplace').addEventListener('click', function(){ if(lightboxType){ currentImgTarget=lightboxType+'Img'; document.getElementById('imgFile').click(); } closeLightbox(); });
 document.getElementById('lbDel').addEventListener('click', function(){ if(lightboxType && editing){ editing.data.image=null; var el=document.getElementById(lightboxType+'Img'); if(el){ el.style.backgroundImage=''; el.classList.remove('has-img'); el.textContent='点击插入图片'; } } closeLightbox(); });
+/* custom important-day events */
+function openEventModal(){
+  var def=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(calSelected).padStart(2,'0');
+  document.getElementById('eventModalTitle').textContent='添加重要日子';
+  document.getElementById('eventName').value='';
+  document.getElementById('eventDate').value=def;
+  document.getElementById('eventModal').classList.add('show');
+  document.getElementById('eventName').focus();
+}
+function closeEventModal(){ document.getElementById('eventModal').classList.remove('show'); }
+document.getElementById('eventCancel').addEventListener('click', closeEventModal);
+document.getElementById('eventModal').addEventListener('click', function(e){ if(e.target===this) closeEventModal(); });
+document.getElementById('eventSave').addEventListener('click', function(){
+  var name=(document.getElementById('eventName').value||'').trim();
+  var date=(document.getElementById('eventDate').value||'').trim();
+  if(!name){ toast('请输入名称'); return; }
+  if(!/^\d{4}-\d{1,2}-\d{1,2}$/.test(date)){ toast('日期格式应为 YYYY-MM-DD'); return; }
+  var pp=date.split('-'); var mm=parseInt(pp[1],10), dd=parseInt(pp[2],10);
+  if(mm<1||mm>12||dd<1||dd>31){ toast('日期不合法'); return; }
+  DB.events.push({id:'e'+Date.now(), name:name, month:mm, day:dd, date:date});
+  saveDB(); closeEventModal(); renderCalendar(); toast('已添加重要日子');
+});
+function deleteCustomEvent(id){ DB.events=DB.events.filter(function(e){return e.id!==id;}); saveDB(); renderCalendar(); }
 // editor toolbar
 var toolbarBtnMap=[null,'checklist','image',null,'link'];
 document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
