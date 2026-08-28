@@ -189,5 +189,30 @@ export function getDayMarks(y,m,d,events){
   return { terms, festivals, customs };
 }
 
+/* ============ 优先级 ============ */
+export const PRIORITY_META = {
+  0: { label: '无', color: '#9AA0AB' },
+  1: { label: '高', color: '#FF4D4F' },
+  2: { label: '中', color: '#FF8A3D' },
+  3: { label: '低', color: '#2BB673' }
+};
 
+/** 获取优先级元数据，非法值回退到 0 */
+export function getPriorityMeta(level) {
+  return PRIORITY_META[level] || PRIORITY_META[0];
+}
 
+/** 按优先级降序排序记录（高 -> 低 -> 无），返回新数组 */
+export function sortByPriority(records) {
+  return [...records].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+}
+
+/** 从记录对象中提取指定文件夹及其后代中优先级 > 0 的记录，并按优先级排序 */
+export function collectPrioritizedRecords(folderId, folders, records) {
+  const ids = collectDescendantFolderIds(folderId, folders);
+  return sortByPriority(
+    Object.keys(records)
+      .filter(k => ids.includes(records[k].folderId) && (records[k].priority || 0) > 0)
+      .map(k => ({ id: k, ...records[k] }))
+  );
+}
