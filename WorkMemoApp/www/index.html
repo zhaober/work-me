@@ -113,11 +113,22 @@
   .calcell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text);border-radius:14px;cursor:pointer;position:relative;}
   .calcell.empty{color:var(--empty);cursor:default;}
   .calcell.has{font-weight:600;}
-  .calcell.has::after{content:"";position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent);}
+  .calcell .calmark{position:absolute;bottom:3px;left:0;right:0;display:flex;justify-content:center;gap:2px;}
+  .calcell .calmark span{width:4px;height:4px;border-radius:50%;}
+  .cm-rec{background:var(--accent);}
+  .cm-term{background:var(--green);}
+  .cm-festival{background:var(--orange);}
+  .cm-custom{background:#7C5CFC;}
   .calcell.today{background:var(--accent);color:#fff;font-weight:600;}
-  .calcell.today.has::after{background:#fff;}
   .calcell.sel{outline:2px solid var(--accent);outline-offset:-2px;}
   .daypanel{display:flex;flex-direction:column;gap:4px;}
+  .daymarks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .daymark{font-size:11px;font-weight:600;padding:3px 9px;border-radius:8px;display:inline-flex;align-items:center;}
+  .dm-term{background:var(--green-soft);color:var(--green);}
+  .dm-festival{background:var(--orange-soft);color:var(--orange);}
+  .dm-custom{background:#EFEAFF;color:#5B3DF2;}
+  .dm-del{margin-left:5px;cursor:pointer;opacity:.65;font-weight:700;}
+  .dm-del:active{opacity:1;}
   /* stats */
   .period{background:var(--accent-soft);border-radius:14px;padding:8px 12px;color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;}
   .metric-row{display:flex;gap:12px;}
@@ -168,6 +179,28 @@
   .sheet-item.danger{color:var(--danger);}
   .sheet-item:active{background:var(--bg);}
   .sheet-cancel{margin-top:8px;font-weight:600;color:var(--text-2);background:var(--bg);}
+
+  /* image lightbox */
+  .imgblock.has-img::after{content:'点击查看大图';position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:500;color:#fff;background:rgba(0,0,0,.5);padding:3px 10px;border-radius:10px;pointer-events:none;}
+  .lightbox-overlay{position:absolute;inset:0;background:rgba(0,0,0,.92);z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+  .lightbox-overlay.show{display:flex;}
+  .lightbox-overlay img{max-width:100%;max-height:72%;border-radius:12px;object-fit:contain;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .lightbox-hint{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;text-align:center;color:#fff;font-size:13px;opacity:.8;}
+  .lightbox-bar{margin-top:18px;display:flex;gap:12px;}
+  .lightbox-bar button{border:none;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:#fff;}
+  .lightbox-bar .lb-close{background:rgba(255,255,255,.22);}
+  .lightbox-bar .lb-replace{background:var(--accent);}
+  .lightbox-bar .lb-del{background:var(--danger);}
+
+  /* selection mode */
+  .selbox{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--check-off);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
+  .selbox.on{border-color:var(--accent);background:var(--accent);color:#fff;}
+  .selbar{position:absolute;left:0;right:0;bottom:calc(95px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--border);padding:12px 20px;display:none;align-items:center;justify-content:space-between;z-index:7;}
+  .selbar.show{display:flex;}
+  .sel-actions{display:flex;gap:10px;}
+  .sel-actions button{border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .sel-actions .cancel{background:var(--bg);color:var(--text);}
+  .sel-actions .danger{background:var(--danger);color:#fff;}
 </style>
 </head>
 <body>
@@ -262,6 +295,15 @@
     <div class="content g16" id="statsContent"></div>
   </section>
 
+  <!-- SELECTION BAR -->
+  <div class="selbar" id="selbar">
+    <div class="t-name" id="selCount">已选择 0 项</div>
+    <div class="sel-actions">
+      <button class="cancel" id="selCancel">取消</button>
+      <button class="danger" id="selDelete">删除</button>
+    </div>
+  </div>
+
   <!-- TAB BAR -->
   <div class="tabbar show" id="tabbar">
     <div class="pill">
@@ -312,11 +354,36 @@
 
   <input type="file" id="imgFile" accept="image/*" style="display:none" />
   <div class="toast" id="toast"></div>
+
+  <!-- IMAGE LIGHTBOX -->
+  <div class="lightbox-overlay" id="lightbox">
+    <div class="lightbox-hint">点击空白处关闭</div>
+    <img id="lightboxImg" alt="图片预览" />
+    <div class="lightbox-bar">
+      <button class="lb-replace" id="lbReplace">替换图片</button>
+      <button class="lb-del" id="lbDel">删除图片</button>
+      <button class="lb-close" id="lbClose">关闭</button>
+    </div>
+  </div>
+
+  <!-- EVENT MODAL (custom important day) -->
+  <div class="modal-overlay" id="eventModal">
+    <div class="modal-card">
+      <div class="mtitle" id="eventModalTitle">添加重要日子</div>
+      <input type="text" id="eventName" placeholder="如：妈妈生日" />
+      <input type="text" id="eventDate" placeholder="YYYY-MM-DD" />
+      <div class="modal-actions">
+        <button id="eventCancel">取消</button>
+        <button class="primary" id="eventSave">保存</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks } from './src/app-core.js';
+import { playSound } from './src/sound.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
@@ -343,7 +410,8 @@ var DB = {
     r7:{type:'plan',   folderId:'study',    title:'完成《设计心理学》第 3 章', date:'2026-08-27', time:'20:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
     r8:{type:'review', folderId:'study',    title:'复盘：英语口语练习',   date:'2026-08-24', time:'22:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
     r9:{type:'plan',   folderId:'study',    title:'整理 LeetCode 错题集', date:'2026-08-22', time:'21:00', reminder:null, tags:[], image:null, checklist:[], body:''}
-  }
+  },
+  events: []
 };
 function childrenOf(id){ var r=[]; for(var k in DB.folders){ if(DB.folders[k].parent===id) r.push(k); } return r; }
 function recordsOf(id){ var r=[]; for(var k in DB.records){ if(DB.records[k].folderId===id) r.push(k); } return r; }
@@ -359,13 +427,13 @@ var LS_KEY = 'work-memo-db-v' + DB_VERSION;
     var raw = localStorage.getItem(LS_KEY);
     if(raw){
       var parsed = JSON.parse(raw);
-      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; }
+      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; if(parsed.events) DB.events = parsed.events; }
     }
   } catch(e){}
 })();
 function saveDB(){
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records}));
+    localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records, events:DB.events}));
   } catch(e){
     toast('保存失败：本地存储空间不足（图片可能过多）');
   }
@@ -374,7 +442,10 @@ function saveDB(){
 /* ============ NAVIGATION ============ */
 var navStack = [{screen:'home'}];
 var currentFolder = null;
+var selectionMode = false;
+var selectedItems = {}; // id -> true
 function show(id){
+  playSound('tap');
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   var scr = document.getElementById(id); scr.classList.add('active');
   var isEditor = scr.hasAttribute('data-no-tab');
@@ -392,11 +463,13 @@ var modalInput=document.getElementById('modalInput'), modalTitle=document.getEle
 var modalOverlay=document.getElementById('modalOverlay');
 var modalCb=null, modalMode='prompt';
 function openPromptModal(title, placeholder, value, cb){
+  playSound('pop');
   modalMode='prompt'; modalTitle.textContent=title; modalMsg.style.display='none';
   modalInput.style.display='block'; modalInput.placeholder=placeholder||''; modalInput.value=value||'';
   modalOverlay.classList.add('show'); modalInput.focus(); modalCb=cb;
 }
 function openConfirmModal(title, msg, cb){
+  playSound('pop');
   modalMode='confirm'; modalTitle.textContent=title; modalMsg.textContent=msg; modalMsg.style.display='block';
   modalInput.style.display='none'; modalInput.value='';
   modalOverlay.classList.add('show'); modalCb=cb;
@@ -409,6 +482,7 @@ modalInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){ documen
 var sheetOverlay=document.getElementById('sheetOverlay'), sheetItems=document.getElementById('sheetItems');
 var sheetCb=null;
 function openSheet(items, cb){ // items: [{label, danger}]
+  playSound('pop');
   sheetItems.innerHTML=items.map(function(it,i){ return '<div class="sheet-item '+(it.danger?'danger':'')+'" data-si="'+i+'">'+it.label+'</div>'; }).join('');
   sheetOverlay.classList.add('show'); sheetCb=cb;
 }
@@ -444,22 +518,30 @@ function renderFolder(id){
   var f = DB.folders[id];
   var crumb = pathOf(id).map(function(n,i,arr){ var cls = i===arr.length-1?'seg cur':'seg'; return '<span class="'+cls+'" data-crumb="'+i+'">'+n+'</span>'; }).join('<span class="sep">/</span>');
   var kids = childrenOf(id);
+  var selBox = function(k){ return '<div class="selbox '+(selectedItems[k]?'on':'')+'" data-sel="'+k+'">'+(selectedItems[k]?CHECK_SVG:'')+'</div>'; };
   var subs = kids.map(function(k){
     var c=DB.folders[k];
+    if(selectionMode){
+      return '<div class="scard" data-sub="'+k+'" style="flex-direction:row;align-items:center;gap:10px">'+selBox(k)+'<div class="ficon" style="background:var(--'+c.color+'-soft);flex-shrink:0">'+folderSVG(COLORS[c.color])+'</div><div style="min-width:0"><div class="t-name">'+c.name+'</div><div class="t-meta">'+folderMeta(k)+'</div></div></div>';
+    }
     return '<div class="scard" data-sub="'+k+'"><div class="ficon" style="background:var(--'+c.color+'-soft)">'+folderSVG(COLORS[c.color])+'</div><div class="t-name">'+c.name+'</div><div class="t-meta">'+folderMeta(k)+'</div></div>';
   }).join('');
-  var newsub = '<div class="scard newsub" data-newsub><div class="ficon" style="background:var(--accent-soft)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1V13M1 7H13" stroke="#4F6EF7" stroke-width="2" stroke-linecap="round"/></svg></div><div class="t-name" style="color:var(--accent)">新建文件夹</div><div class="t-meta">点击新建</div></div>';
+  var newsub = selectionMode ? '' : '<div class="scard newsub" data-newsub><div class="ficon" style="background:var(--accent-soft)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1V13M1 7H13" stroke="#4F6EF7" stroke-width="2" stroke-linecap="round"/></svg></div><div class="t-name" style="color:var(--accent)">新建文件夹</div><div class="t-meta">点击新建</div></div>';
   var recs = recordsOf(id).map(function(k){
     var r=DB.records[k];
+    if(selectionMode){
+      return '<div class="rec" data-rec="'+k+'"><div class="left"><div class="row-center gap10">'+selBox(k)+'<div class="badge '+r.type+'">'+(r.type==='plan'?'计划':'复盘')+'</div></div><div class="rtext"><div class="t-rec-title">'+r.title+'</div><div class="t-meta">'+r.date+' '+r.time+'</div></div></div></div>';
+    }
     return '<div class="rec" data-rec="'+k+'"><div class="left"><div class="badge '+r.type+'">'+(r.type==='plan'?'计划':'复盘')+'</div><div class="rtext"><div class="t-rec-title">'+r.title+'</div><div class="t-meta">'+r.date+' '+r.time+'</div></div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
   }).join('');
   if(!recs) recs = '<div class="empty-hint">该文件夹还没有记录</div>';
+  var recHeader = selectionMode ? '<div class="head"><div class="t-name">选择要删除的内容</div></div>' : '<div class="head"><div class="t-name">全部记录</div><div class="row-center gap8"><span class="link-blue" data-newrec="plan">＋ 计划</span><span class="link-blue" data-newrec="review">＋ 复盘</span></div></div>';
   document.getElementById('folderContent').innerHTML =
-    '<div class="head"><button class="back icon-btn" data-back><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M6 1L1 7L6 13" stroke="#1A1D29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="title">'+f.name+'</div><button class="more icon-btn" data-folder-menu title="文件夹选项"><svg width="18" height="4" viewBox="0 0 18 4" fill="none"><circle cx="3" cy="2" r="2" fill="#1A1D29"/><circle cx="9" cy="2" r="2" fill="#1A1D29"/><circle cx="15" cy="2" r="2" fill="#1A1D29"/></svg></button></div>'
+    '<div class="head"><button class="back icon-btn" data-back><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M6 1L1 7L6 13" stroke="#1A1D29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="title">'+f.name+'</div><button class="more icon-btn" data-folder-menu title="文件夹选项" '+(selectionMode?'style="visibility:hidden"':'')+'><svg width="18" height="4" viewBox="0 0 18 4" fill="none"><circle cx="3" cy="2" r="2" fill="#1A1D29"/><circle cx="9" cy="2" r="2" fill="#1A1D29"/><circle cx="15" cy="2" r="2" fill="#1A1D29"/></svg></button></div>'
    +'<div class="crumb">'+crumb+'</div>'
    +'<div class="t-name">子文件夹</div>'
    +'<div class="subgrid">'+subs+newsub+'</div>'
-   +'<div class="head"><div class="t-name">全部记录</div><div class="row-center gap8"><span class="link-blue" data-newrec="plan">＋ 计划</span><span class="link-blue" data-newrec="review">＋ 复盘</span></div></div>'+ recs;
+   +recHeader+recs;
 }
 
 /* ============ RENDER: SEARCH ============ */
@@ -506,13 +588,27 @@ function renderCalendar(){
       if(calYear===tY && calMonth+1===tM && d===tD) cell.classList.add('today');
       if(dated[d]) cell.classList.add('has');
       if(d===calSelected) cell.classList.add('sel');
+      var mk=getDayMarks(calYear, calMonth+1, d, DB.events);
+      var dots=[];
+      if(dated[d]) dots.push('rec');
+      mk.terms.forEach(function(){ dots.push('term'); });
+      mk.festivals.forEach(function(){ dots.push('festival'); });
+      mk.customs.forEach(function(){ dots.push('custom'); });
+      if(dots.length){ var md=document.createElement('div'); md.className='calmark'; md.innerHTML=dots.map(function(c){ return '<span class="cm-'+c+'"></span>'; }).join(''); cell.appendChild(md); }
       cell.setAttribute('data-day', d);
     }
     grid.appendChild(cell);
   });
   var recs = allRecords().filter(function(k){ var r=DB.records[k]; if(!r.date) return false; var pp=r.date.split('-'); return parseInt(pp[0],10)===calYear && parseInt(pp[1],10)===calMonth+1 && parseInt(pp[2],10)===calSelected; });
   var wd=['日','一','二','三','四','五','六'][new Date(calYear,calMonth,calSelected).getDay()];
-  document.getElementById('dayPanel').innerHTML='<div class="t-section">'+calYear+'年'+(calMonth+1)+'月'+calSelected+'日 · 周'+wd+'</div><div class="t-meta">当日 '+recs.length+' 条记录</div>';
+  var mk=getDayMarks(calYear, calMonth+1, calSelected, DB.events);
+  var markItems=[];
+  mk.terms.forEach(function(t){ markItems.push({label:t, cls:'dm-term'}); });
+  mk.festivals.forEach(function(t){ markItems.push({label:t, cls:'dm-festival'}); });
+  mk.customs.forEach(function(e){ markItems.push({label:e.name, cls:'dm-custom', id:e.id}); });
+  var markHtml='';
+  if(markItems.length){ markHtml='<div class="daymarks">'+markItems.map(function(it){ return '<span class="daymark '+it.cls+'">'+(it.id?'<span class="dm-del" data-del-event="'+it.id+'">×</span>':'')+it.label+'</span>'; }).join('')+'</div>'; }
+  document.getElementById('dayPanel').innerHTML='<div class="t-section">'+calYear+'年'+(calMonth+1)+'月'+calSelected+'日 · 周'+wd+'</div><div class="t-meta">当日 '+recs.length+' 条记录</div>'+markHtml+'<div class="row-center" style="margin-top:8px"><span class="link-blue" data-add-event>＋ 添加重要日子</span></div>';
   var html = recs.map(function(k){
     var r=DB.records[k];
     return '<div class="rec" data-rec="'+k+'"><div class="left"><div class="badge '+r.type+'">'+(r.type==='plan'?'计划':'复盘')+'</div><div class="rtext"><div class="t-rec-title">'+r.title+'</div><div class="t-meta">'+r.time+'</div></div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
@@ -547,12 +643,12 @@ function renderStats(){
 
 /* ============ EXPORT ============ */
 function exportData(){
-  var payload = { exportedAt:new Date().toISOString(), folders:DB.folders, records:DB.records };
+  var payload = { exportedAt:new Date().toISOString(), folders:DB.folders, records:DB.records, events:DB.events };
   var blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   var url = URL.createObjectURL(blob);
   var a=document.createElement('a'); a.href=url; a.download='工作计划与复盘-导出.json'; a.click();
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  toast('已导出 JSON 文件');
+  toast('已导出 JSON 文件'); playSound('success');
 }
 
 /* ============ TOAST & QUOTE ============ */
@@ -574,6 +670,12 @@ function maybeAutoShowQuote(){
 document.getElementById('app').addEventListener('click', function(e){
   // show daily quote
   var sq=e.target.closest('[data-show-quote]'); if(sq){ showDailyQuote(); return; }
+  // selection bar: cancel
+  var sc=e.target.closest('#selCancel'); if(sc){ exitSelectionMode(); return; }
+  // selection bar: delete
+  var sd=e.target.closest('#selDelete'); if(sd){ deleteSelectedConfirm(); return; }
+  // selection mode: toggle item checkbox
+  var sel=e.target.closest('[data-sel]'); if(sel){ toggleSel(sel.getAttribute('data-sel')); return; }
   // back
   var back=e.target.closest('[data-back]'); if(back){ if(navStack.length>1) navStack.pop(); var prev=navStack[navStack.length-1]; if(prev.screen==='folder'){ renderFolder(prev.id); } else if(prev.screen==='plan'||prev.screen==='review'){ loadEditor(prev.type, prev.recId, prev.folderId); paintEditor(); } else if(prev.screen==='home'){ renderHome(); } else if(prev.screen==='search'){ renderSearch(document.getElementById('searchInput').value); } else if(prev.screen==='calendar'){ renderCalendar(); } else if(prev.screen==='stats'){ renderStats(); } show(prev.screen); return; }
   // home folder row
@@ -581,26 +683,30 @@ document.getElementById('app').addEventListener('click', function(e){
   // search result folder/record
   var sres=e.target.closest('#searchContent [data-folder]'); if(sres){ goFolder(sres.getAttribute('data-folder')); return; }
   var srec=e.target.closest('#searchContent [data-rec]'); if(srec){ openRecord(srec.getAttribute('data-rec')); return; }
-  // folder detail: subfolder
-  var sub=e.target.closest('[data-sub]'); if(sub){ goFolder(sub.getAttribute('data-sub')); return; }
+  // folder detail: subfolder (selection mode toggles instead of navigate)
+  var sub=e.target.closest('[data-sub]'); if(sub){ if(selectionMode){ toggleSel(sub.getAttribute('data-sub')); } else { goFolder(sub.getAttribute('data-sub')); } return; }
   // folder detail: breadcrumb segment
   var seg=e.target.closest('[data-crumb]'); if(seg){ var idx=parseInt(seg.getAttribute('data-crumb'),10); var p=pathOf(currentFolder); var target=null; for(var id in DB.folders){ if(DB.folders[id].name===p[idx] && pathOf(id).length-1===idx){ target=id; break; } } if(target!==null) goFolder(target); return; }
   // folder detail: new subfolder
   var ns=e.target.closest('[data-newsub]'); if(ns){ openPromptModal('新建子文件夹', '输入文件夹名称', '未命名文件夹', function(v){ var name=(v||'').trim(); if(name){ var nid='u'+Date.now(); DB.folders[nid]={name:name,parent:currentFolder,color:'accent'}; saveDB(); renderFolder(currentFolder); } }); return; }
   // folder detail: new record
   var nr=e.target.closest('[data-newrec]'); if(nr){ newRecord(nr.getAttribute('data-newrec')); return; }
-  // record row -> editor
-  var rec=e.target.closest('[data-rec]'); if(rec){ openRecord(rec.getAttribute('data-rec')); return; }
+  // record row (selection mode toggles instead of navigate)
+  var rec=e.target.closest('[data-rec]'); if(rec){ if(selectionMode){ toggleSel(rec.getAttribute('data-rec')); } else { openRecord(rec.getAttribute('data-rec')); } return; }
   // tabs
   var tab=e.target.closest('.tab'); if(tab){ var tid=tab.getAttribute('data-tab'); navStack=[{screen: tid==='folders'?'home':tid}]; if(tid==='folders') renderHome(); if(tid==='stats') renderStats(); if(tid==='calendar') renderCalendar(); show(tid==='folders'?'home':tid); return; }
   // calendar prev month
-  var cp=e.target.closest('[data-cal-prev]'); if(cp){ calMonth--; if(calMonth<0){ calMonth=11; calYear--; } renderCalendar(); return; }
+  var cp=e.target.closest('[data-cal-prev]'); if(cp){ playSound('tap'); calMonth--; if(calMonth<0){ calMonth=11; calYear--; } renderCalendar(); return; }
   // calendar next month
-  var cn=e.target.closest('[data-cal-next]'); if(cn){ calMonth++; if(calMonth>11){ calMonth=0; calYear++; } renderCalendar(); return; }
+  var cn=e.target.closest('[data-cal-next]'); if(cn){ playSound('tap'); calMonth++; if(calMonth>11){ calMonth=0; calYear++; } renderCalendar(); return; }
   // calendar jump to year/month
   var cj=e.target.closest('[data-cal-jump]'); if(cj){ openPromptModal('跳转到年月', '格式 YYYY-MM', calYear+'-'+String(calMonth+1).padStart(2,'0'), function(v){ if(v && /^\d{4}-\d{1,2}$/.test(v)){ var pp=v.split('-'); var yy=parseInt(pp[0],10), mm=parseInt(pp[1],10)-1; if(yy>=1970 && yy<=2100 && mm>=0 && mm<=11){ calYear=yy; calMonth=mm; calSelected=1; renderCalendar(); } } }); return; }
   // calendar day
-  var day=e.target.closest('.calcell[data-day]'); if(day){ calSelected=parseInt(day.getAttribute('data-day'),10); renderCalendar(); return; }
+  var day=e.target.closest('.calcell[data-day]'); if(day){ playSound('tap'); calSelected=parseInt(day.getAttribute('data-day'),10); renderCalendar(); return; }
+  // calendar: add custom important day
+  var ae=e.target.closest('[data-add-event]'); if(ae){ openEventModal(); return; }
+  // calendar: delete custom important day
+  var de=e.target.closest('[data-del-event]'); if(de){ deleteCustomEvent(de.getAttribute('data-del-event')); return; }
   // stats tag filter
   var tag=e.target.closest('[data-tag]'); if(tag){ document.getElementById('searchInput').value=tag.getAttribute('data-tag'); renderSearch(tag.getAttribute('data-tag')); show('search'); return; }
   // editor save
@@ -622,12 +728,37 @@ document.getElementById('exportBtn').addEventListener('click', exportData);
 
 /* ============ FOLDER OPERATIONS ============ */
 function openFolderMenu(){
-  openSheet([{label:'重命名'}, {label:'删除文件夹', danger:true}], function(idx){
+  if(selectionMode) return;
+  openSheet([{label:'重命名'}, {label:'选择性删除'}, {label:'一键清空', danger:true}, {label:'删除文件夹', danger:true}], function(idx){
     if(idx===0){
       openPromptModal('重命名文件夹', '新名称', DB.folders[currentFolder].name, function(v){ var name=(v||'').trim(); if(name){ DB.folders[currentFolder].name=name; saveDB(); renderFolder(currentFolder); } });
     } else if(idx===1){
-      openConfirmModal('删除文件夹', '该文件夹及其子文件夹、记录都会被删除，确定吗？', function(ok){ if(ok){ deleteFolder(currentFolder); saveDB(); navStack=[{screen:'home'}]; renderHome(); show('home'); } });
+      enterSelectionMode();
+    } else if(idx===2){
+      clearFolderConfirm();
+    } else if(idx===3){
+      deleteFolderConfirm();
     }
+  });
+}
+function deleteFolderConfirm(){
+  openConfirmModal('删除文件夹', '该文件夹及其子文件夹、记录都会被删除，确定吗？', function(ok){ if(ok){ deleteFolder(currentFolder); saveDB(); playSound('delete'); navStack=[{screen:'home'}]; renderHome(); show('home'); } });
+}
+function enterSelectionMode(){ selectionMode=true; selectedItems={}; renderFolder(currentFolder); showSelbar(); }
+function exitSelectionMode(){ selectionMode=false; selectedItems={}; renderFolder(currentFolder); hideSelbar(); }
+function showSelbar(){ document.getElementById('selbar').classList.add('show'); updateSelCount(); }
+function hideSelbar(){ document.getElementById('selbar').classList.remove('show'); }
+function updateSelCount(){ var n=Object.keys(selectedItems).length; document.getElementById('selCount').textContent='已选择 '+n+' 项'; document.getElementById('selDelete').textContent=n?'删除 ('+n+')':'删除'; }
+function toggleSel(id){ playSound('toggle'); if(selectedItems[id]) delete selectedItems[id]; else selectedItems[id]=true; updateSelCount(); renderFolder(currentFolder); }
+function deleteSelectedConfirm(){
+  var ids=Object.keys(selectedItems); if(!ids.length){ toast('请先选择要删除的内容'); return; }
+  openConfirmModal('删除选中内容', '确定删除选中的 '+ids.length+' 项吗？', function(ok){
+    if(ok){ var res=deleteSelectedItems(ids, DB.folders, DB.records); DB.folders=res.folders; DB.records=res.records; saveDB(); exitSelectionMode(); toast('已删除'); playSound('delete'); }
+  });
+}
+function clearFolderConfirm(){
+  openConfirmModal('一键清空', '将清空该文件夹下的所有子文件夹和记录，文件夹本身保留。确定吗？', function(ok){
+    if(ok){ var res=clearFolderContents(currentFolder, DB.folders, DB.records); DB.folders=res.folders; DB.records=res.records; saveDB(); renderFolder(currentFolder); toast('已清空'); playSound('delete'); }
   });
 }
 function deleteFolder(id){
@@ -702,14 +833,14 @@ function bindEditor(type){
   var dateEl=document.getElementById(type+'Date'); if(dateEl) dateEl.addEventListener('click', function(){
     openPromptModal('选择日期', '格式 YYYY-MM-DD', editing.data.date, function(v){ if(v && /^\d{4}-\d{2}-\d{2}$/.test(v)){ editing.data.date=v; document.getElementById(type+'Date').querySelector('span').textContent=v; } });
   });
-  c.querySelectorAll('[data-cb]').forEach(function(cb){ cb.addEventListener('click', function(ev){ ev.stopPropagation(); var ci=parseInt(cb.getAttribute('data-ci'),10); var on=cb.classList.contains('on'); cb.classList.toggle('on',!on); cb.classList.toggle('off',on); var svg=cb.querySelector('svg'); if(!on){ if(!svg) cb.innerHTML=CHECK_SVG; } else { if(svg) svg.remove(); } editing.data.checklist[ci].c=!on; }); });
+  c.querySelectorAll('[data-cb]').forEach(function(cb){ cb.addEventListener('click', function(ev){ ev.stopPropagation(); playSound('toggle'); var ci=parseInt(cb.getAttribute('data-ci'),10); var on=cb.classList.contains('on'); cb.classList.toggle('on',!on); cb.classList.toggle('off',on); var svg=cb.querySelector('svg'); if(!on){ if(!svg) cb.innerHTML=CHECK_SVG; } else { if(svg) svg.remove(); } editing.data.checklist[ci].c=!on; }); });
   c.querySelectorAll('[data-citext]').forEach(function(t){ t.addEventListener('input', function(){ var ci=parseInt(t.closest('[data-ci]').getAttribute('data-ci'),10); editing.data.checklist[ci].t=this.textContent; }); });
   c.querySelectorAll('[data-cdel]').forEach(function(btn){ btn.addEventListener('click', function(ev){ ev.stopPropagation(); var ci=parseInt(btn.getAttribute('data-cdel'),10); editing.data.checklist=deleteChecklistItem(editing.data.checklist, ci); paintEditor(); }); });
-  var addci=c.querySelector('[data-addci]'); if(addci) addci.addEventListener('click', function(){ editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); });
+  var addci=c.querySelector('[data-addci]'); if(addci) addci.addEventListener('click', function(){ playSound('toggle'); editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); });
   var tagsEl=document.getElementById(type+'Tags'); if(tagsEl) tagsEl.addEventListener('click', function(e){ var tag=e.target.closest('[data-tag-del]'); if(tag){ var t=tag.getAttribute('data-tag-del'); editing.data.tags=editing.data.tags.filter(function(x){return x!==t;}); paintEditor(); return; } if(e.target.classList.contains('tag') && e.target.textContent.indexOf('+')<0) return;
     openPromptModal('添加标签', '如：重要', '', function(v){ var t=(v||'').trim(); if(t){ editing.data.tags.push(t.replace(/^#/,'')); paintEditor(); } });
   });
-  var imgEl=document.getElementById(type+'Img'); if(imgEl) imgEl.addEventListener('click', function(){ currentImgTarget=type+'Img'; document.getElementById('imgFile').click(); });
+  var imgEl=document.getElementById(type+'Img'); if(imgEl) imgEl.addEventListener('click', function(){ if(hasImage(editing.data)){ lightboxType=type; openLightbox(editing.data.image); } else { currentImgTarget=type+'Img'; document.getElementById('imgFile').click(); } });
   var lk=c.querySelector('[data-link-choose]'); if(lk) lk.addEventListener('click', chooseLinkPlan);
 }
 function chooseLinkPlan(){
@@ -729,13 +860,14 @@ function saveEditor(){
   else { DB.records[editing.id]=clone(d); }
   saveDB();
   toast(isNew?'已新建并保存':'已保存');
+  playSound('success');
   renderFolder(editing.folderId);
   navStack[navStack.length-1]={screen:'folder', id:editing.folderId};
   show('folder');
 }
 function deleteCurrentRecord(){
   if(!editing || editing.isNew) return;
-  openConfirmModal('删除记录', '确定删除“'+(editing.data.title||'未命名')+'”吗？此操作不可恢复。', function(ok){ if(ok){ delete DB.records[editing.id]; saveDB(); toast('已删除'); var fid=editing.folderId; navStack=[{screen:'folder', id:fid}]; renderFolder(fid); show('folder'); } });
+  openConfirmModal('删除记录', '确定删除“'+(editing.data.title||'未命名')+'”吗？此操作不可恢复。', function(ok){ if(ok){ delete DB.records[editing.id]; saveDB(); toast('已删除'); playSound('delete'); var fid=editing.folderId; navStack=[{screen:'folder', id:fid}]; renderFolder(fid); show('folder'); } });
 }
 function scheduleReminder(time){
   var parts=time.split(':'); var h=parseInt(parts[0],10), m=parseInt(parts[1],10);
@@ -749,13 +881,45 @@ document.getElementById('imgFile').addEventListener('change', function(){
   var rd=new FileReader(); rd.onload=function(ev){ if(editing){ editing.data.image=ev.target.result; } var el=document.getElementById(currentImgTarget||''); if(el){ el.style.backgroundImage='url('+ev.target.result+')'; el.classList.add('has-img'); el.textContent=''; } };
   rd.readAsDataURL(file); this.value='';
 });
+/* lightbox for previewing uploaded images */
+var lightboxType=null;
+function openLightbox(src){ playSound('pop'); var lb=document.getElementById('lightbox'); document.getElementById('lightboxImg').src=src; lb.classList.add('show'); }
+function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; }
+document.getElementById('lbClose').addEventListener('click', closeLightbox);
+document.getElementById('lightbox').addEventListener('click', function(e){ if(e.target===this || e.target.classList.contains('lightbox-hint')) closeLightbox(); });
+document.getElementById('lbReplace').addEventListener('click', function(){ if(lightboxType){ currentImgTarget=lightboxType+'Img'; document.getElementById('imgFile').click(); } closeLightbox(); });
+document.getElementById('lbDel').addEventListener('click', function(){ if(lightboxType && editing){ editing.data.image=null; var el=document.getElementById(lightboxType+'Img'); if(el){ el.style.backgroundImage=''; el.classList.remove('has-img'); el.textContent='点击插入图片'; } } closeLightbox(); });
+/* custom important-day events */
+function openEventModal(){
+  var def=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(calSelected).padStart(2,'0');
+  document.getElementById('eventModalTitle').textContent='添加重要日子';
+  document.getElementById('eventName').value='';
+  document.getElementById('eventDate').value=def;
+  document.getElementById('eventModal').classList.add('show');
+  document.getElementById('eventName').focus();
+}
+function closeEventModal(){ document.getElementById('eventModal').classList.remove('show'); }
+document.getElementById('eventCancel').addEventListener('click', closeEventModal);
+document.getElementById('eventModal').addEventListener('click', function(e){ if(e.target===this) closeEventModal(); });
+document.getElementById('eventSave').addEventListener('click', function(){
+  var name=(document.getElementById('eventName').value||'').trim();
+  var date=(document.getElementById('eventDate').value||'').trim();
+  if(!name){ toast('请输入名称'); return; }
+  if(!/^\d{4}-\d{1,2}-\d{1,2}$/.test(date)){ toast('日期格式应为 YYYY-MM-DD'); return; }
+  var pp=date.split('-'); var mm=parseInt(pp[1],10), dd=parseInt(pp[2],10);
+  if(mm<1||mm>12||dd<1||dd>31){ toast('日期不合法'); return; }
+  DB.events.push({id:'e'+Date.now(), name:name, month:mm, day:dd, date:date});
+  saveDB(); closeEventModal(); renderCalendar(); toast('已添加重要日子'); playSound('success');
+});
+function deleteCustomEvent(id){ DB.events=DB.events.filter(function(e){return e.id!==id;}); saveDB(); renderCalendar(); }
 // editor toolbar
 var toolbarBtnMap=[null,'checklist','image',null,'link'];
 document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
   btn.addEventListener('click', function(){
     if(!editing) return;
+    playSound('tap');
     var act=toolbarBtnMap[i];
-    if(act==='checklist'){ editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); }
+    if(act==='checklist'){ playSound('toggle'); editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); }
     else if(act==='image'){ currentImgTarget=editing.type+'Img'; document.getElementById('imgFile').click(); }
     else if(act==='link' && editing.type==='review'){ chooseLinkPlan(); }
   });
