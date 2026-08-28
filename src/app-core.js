@@ -216,3 +216,25 @@ export function collectPrioritizedRecords(folderId, folders, records) {
       .map(k => ({ id: k, ...records[k] }))
   );
 }
+
+/* ============ 主题 TOKENS ============ */
+export const THEME_TOKENS = {
+  light: {
+    '--bg':'#F4F5FA', '--card':'#FFFFFF', '--border':'#ECECF1',
+    '--text':'#1A1D29', '--text-2':'#70747E', '--text-3':'#A0A4AE',
+    '--accent':'#4F6EF7', '--accent-soft':'#EEF1FE', '--accent-stroke':'#C9D2FB',
+    '--orange':'#FF8A3D', '--orange-soft':'#FFF1E6', '--orange-card':'#FFF8F2', '--orange-border':'#FBCDA8',
+    '--progress-track':'#F0E2D6', '--check-off':'#C9CDD6', '--body':'#2A2D36', '--danger':'#E53935'
+  },
+  dark: {
+    '--bg':'#0E1014', '--card':'#1A1D24', '--border':'#2A2E37',
+    '--text':'#EDEFF4', '--text-2':'#9AA0AC', '--text-3':'#6B7180',
+    '--accent':'#6E8BFF', '--accent-soft':'#1E2540', '--accent-stroke':'#33407A',
+    '--orange':'#FF9A55', '--orange-soft':'#3A2A1E', '--orange-card':'#2A2018', '--orange-border':'#5A3E2A',
+    '--progress-track':'#2E2620', '--check-off':'#4A4F5A', '--body':'#C8CDD6', '--danger':'#FF5B56'
+  }
+};
+/** 规范化主题名，仅 'dark' 合法，其余回退 'light' */
+export function normalizeTheme(t){ return t === 'dark' ? 'dark' : 'light'; }
+/** 返回某主题的 CSS 变量对象（用于测试与运行时注入） */
+export function getThemeVars(theme){ return THEME_TOKENS[normalizeTheme(theme)]; }
