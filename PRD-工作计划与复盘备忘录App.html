@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PRD · 工作计划与复盘备忘录 App</title>
+<style>
+  :root{
+    --bg:#F4F5FA; --card:#FFFFFF; --border:#ECECF1;
+    --ink:#1A1D29; --sub:#70747E; --muted:#A0A4AE;
+    --accent:#4F6EF7; --accent-soft:#EEF1FE;
+    --orange:#FF8A3D; --orange-soft:#FFEFE3;
+    --green:#2BB673;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    line-height:1.7; font-size:15px;
+  }
+  .wrap{max-width:880px; margin:0 auto; padding:48px 28px 96px; background:var(--card);
+        box-shadow:0 1px 3px rgba(20,24,40,.06); border-radius:16px; margin-top:28px; margin-bottom:28px;}
+  header.doc{border-bottom:2px solid var(--border); padding-bottom:20px; margin-bottom:28px;}
+  .pill-tag{display:inline-block; background:var(--accent-soft); color:var(--accent);
+            font-size:12px; font-weight:600; padding:3px 10px; border-radius:999px; letter-spacing:.5px;}
+  h1{font-size:26px; margin:12px 0 6px;}
+  .meta{display:flex; flex-wrap:wrap; gap:8px 24px; color:var(--sub); font-size:13px; margin-top:10px;}
+  h2{font-size:19px; margin:34px 0 12px; padding-left:11px; border-left:4px solid var(--accent);}
+  h3{font-size:15.5px; margin:22px 0 8px; color:var(--ink);}
+  p{margin:8px 0;}
+  .lead{color:var(--sub);}
+  ul,ol{margin:8px 0; padding-left:22px;}
+  li{margin:5px 0;}
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:13.5px;}
+  th,td{border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--accent-soft); color:var(--accent); font-weight:600;}
+  tr:nth-child(even) td{background:#FAFBFF;}
+  .kv{display:grid; grid-template-columns:120px 1fr; gap:6px 16px; margin:12px 0;}
+  .kv dt{color:var(--sub); font-weight:600;}
+  .kv dd{margin:0;}
+  code{background:#F2F3F8; padding:1px 6px; border-radius:6px; font-size:13px; color:#3a3f52;}
+  .screen-grid{display:grid; grid-template-columns:1fr; gap:0;}
+  .scr{border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin:12px 0;}
+  .scr h3{margin-top:0;}
+  .badge{display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:6px;}
+  .b-plan{background:var(--accent-soft); color:var(--accent);}
+  .b-review{background:var(--orange-soft); color:var(--orange);}
+  .b-p0{background:#FFEFE3; color:#E0620F;}
+  .b-p1{background:#EEF1FE; color:var(--accent);}
+  .b-p2{background:#EAF7F0; color:var(--green);}
+  .tok{display:flex; flex-wrap:wrap; gap:10px; margin:12px 0;}
+  .tok .sw{flex:0 0 auto; width:120px; border:1px solid var(--border); border-radius:10px; overflow:hidden; font-size:11px;}
+  .tok .sw .c{height:46px;}
+  .tok .sw .t{padding:6px 8px; color:var(--sub);}
+  .note{background:#FFF8EE; border:1px solid #FBE2BE; border-radius:10px; padding:12px 14px; color:#7a5a1f; font-size:13.5px; margin:14px 0;}
+  .arch{background:#FAFBFF; border:1px dashed var(--border); border-radius:10px; padding:14px 18px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; line-height:1.6; color:#3a3f52; white-space:pre;}
+  footer.doc{margin-top:40px; padding-top:16px; border-top:1px solid var(--border); color:var(--muted); font-size:12.5px;}
+  @media print{ body{background:#fff;} .wrap{box-shadow:none; margin:0; max-width:100%;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="doc">
+    <span class="pill-tag">PRODUCT REQUIREMENTS DOCUMENT</span>
+    <h1>工作计划与复盘备忘录 App</h1>
+    <div class="meta">
+      <span>版本：v1.0（本地版）</span>
+      <span>日期：2026-08-27</span>
+      <span>状态：评审中</span>
+      <span>平台：移动端 Android（基准 360×800）</span>
+    </div>
+  </header>
+
+  <h2>1. 产品概述</h2>
+  <h3>1.1 背景与问题</h3>
+  <p class="lead">职场人每天既要规划工作（计划），也要定期总结（复盘）。现有备忘录/笔记工具多为扁平列表，难以把"计划"和"复盘"两类内容按项目或主题归类，也难以在复盘时直接对照原始计划。用户期望一种贴合"文件管理"心智的记录方式：像电脑目录一样层层归档，再在文件夹里沉淀计划与复盘。</p>
+  <h3>1.2 产品定位</h3>
+  <p>一款以「<b>多级文件夹分区 + 计划/复盘双类型</b>」为核心心智模型、采用<b>块编辑器</b>、主打「活力高效」视觉的移动端备忘录 App。让每日计划与复盘结构化沉淀，并能在时间维度（日历/统计）上回顾。</p>
+  <h3>1.3 目标用户</h3>
+  <ul>
+    <li>职场白领、项目经理、运营/产品/研发同学；</li>
+    <li>有"日计划 + 日复盘"习惯、需要按项目/主题归档的人群；</li>
+    <li>偏好轻量、本地可用、不依赖账号的工具型用户。</li>
+  </ul>
+  <h3>1.4 核心价值</h3>
+  <ul>
+    <li><b>双类型分色</b>：计划（靛蓝）/复盘（橙）徽标区分，状态一目了然；</li>
+    <li><b>文件式归档</b>：多级文件夹天然贴合"按项目归类"的心智；</li>
+    <li><b>计划对照</b>：复盘可关联计划，自动展示完成度对照卡；</li>
+    <li><b>灵活记录 + 时间回顾</b>：块编辑器自由书写，日历/统计提供回顾视角。</li>
+  </ul>
+
+  <h2>2. 范围与边界（本版本）</h2>
+  <div class="note">
+    <b>运行模式决策</b>：本版本为<b>本地运行</b>的单机 App，不含云端账号体系，已移除原设计中的「我的 / 云同步」模块。因此"云同步/多设备"功能在本版本<b>暂缓</b>（见 §4 与 §10）。
+  </div>
+  <ul>
+    <li><b>平台</b>：移动端 Android，基准设计尺寸 360×800；</li>
+    <li><b>数据</b>：本地存储（建议 localStorage 或本地数据库），不依赖服务端；</li>
+    <li><b>不在本版范围</b>：云端实时同步、多端协同、账号体系、团队协作、AI 自动生成内容。</li>
+  </ul>
+
+  <h2>3. 信息架构与核心概念</h2>
+  <h3>3.1 核心对象</h3>
+  <ul>
+    <li><b>文件夹（Folder）</b>：可多级嵌套，类似电脑目录，例如 <code>工作 / 2026 Q3</code>。</li>
+    <li><b>计划（Plan）</b>：一条计划记录，含标题、提醒、正文（块）、标签、附件。</li>
+    <li><b>复盘（Review）</b>：一条复盘记录，可关联一条计划做对照；含不足说明、改进项、标签。</li>
+    <li><b>记录（Record）</b>：Plan 与 Review 的统称，出现在文件夹的"全部记录"列表中。</li>
+    <li><b>标签（Tag）</b>：用于分类与统计聚合。</li>
+  </ul>
+  <h3>3.2 计划与复盘的关系（混合模型）</h3>
+  <ul>
+    <li>两类记录彼此<b>独立</b>，可随时新建，不强制配对；</li>
+    <li>复盘可<b>关联一条计划</b>，关联后展示"计划对照卡"（计划完成度进度条 + 计划要点），便于复盘时回顾目标。</li>
+  </ul>
+  <h3>3.3 信息架构树</h3>
+  <div class="arch">首页（文件夹总览）
+├─ 文件夹详情
+│   ├─ 子文件夹（可继续进入 / 可新建）
+│   └─ 全部记录（计划·复盘混排，分色徽标）
+├─ 计划编辑器
+├─ 复盘编辑器
+├─ 日历视图
+└─ 统计看板
+
+底部导航：文件夹 · 日历 · 统计（删除"我的"）</div>
+
+  <h2>4. 功能需求清单</h2>
+  <table>
+    <thead><tr><th>编号</th><th>功能</th><th>说明</th><th>优先级</th><th>原型状态</th></tr></thead>
+    <tbody>
+      <tr><td>F-01</td><td>多级文件夹管理</td><td>文件夹可嵌套，支持新建（首页与子文件夹内均可新建）</td><td><span class="badge b-p0">P0</span></td><td>原型已实现</td></tr>
+      <tr><td>F-02</td><td>计划记录</td><td>标题 + 提醒 + 块正文 + 标签 + 附件</td><td><span class="badge b-p0">P0</span></td><td>原型已实现</td></tr>
+      <tr><td>F-03</td><td>复盘记录（可关联计划）</td><td>含关联计划对照卡、不足说明、改进项</td><td><span class="badge b-p0">P0</span></td><td>原型已实现</td></tr>
+      <tr><td>F-04</td><td>块编辑器</td><td>标题 / 自由正文 / 清单 / 图片 / 分割线 / 链接（Notion/飞书风格）</td><td><span class="badge b-p0">P0</span></td><td>原型已实现</td></tr>
+      <tr><td>F-05</td><td>搜索</td><td>顶部搜索入口，按标题/标签/正文检索</td><td><span class="badge b-p1">P1</span></td><td>入口已实现，检索逻辑待开发</td></tr>
+      <tr><td>F-06</td><td>提醒通知</td><td>计划可设提醒时间，本地通知；编辑器含提醒入口</td><td><span class="badge b-p1">P1</span></td><td>入口已实现</td></tr>
+      <tr><td>F-07</td><td>日历视图</td><td>月历网格，日期高亮，选中日展示当日记录</td><td><span class="badge b-p0">P0</span></td><td>原型已实现</td></tr>
+      <tr><td>F-08</td><td>标签管理</td><td>打标 + 标签聚合（统计页标签分布）</td><td><span class="badge b-p1">P1</span></td><td>标签展示已实现</td></tr>
+      <tr><td>F-09</td><td>附件 / 图片</td><td>块编辑器支持插入图片块</td><td><span class="badge b-p1">P1</span></td><td>图片块已实现</td></tr>
+      <tr><td>F-10</td><td>统计趋势</td><td>完成率、复盘篇数、连续天数、7 日趋势、标签分布</td><td><span class="badge b-p0">P0</span></td><td>示例数据已实现</td></tr>
+      <tr><td>F-11</td><td>导出</td><td>导出为文件（如 Markdown/JSON），本地保存</td><td><span class="badge b-p2">P2</span></td><td>待开发（原入口在"我的"，本地版改用导出功能替代）</td></tr>
+      <tr><td>F-12</td><td>新建文件夹</td><td>首页与子文件夹内均提供"新建文件夹"</td><td><span class="badge b-p0">P0</span></td><td>原型已实现</td></tr>
+      <tr><td>F-13</td><td>云同步 / 多设备</td><td>账号 + 多端实时同步</td><td><span class="badge b-p2">P2</span></td><td><b>暂缓</b>（本地版不含）</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. 页面与交互设计</h2>
+  <div class="screen-grid">
+    <div class="scr">
+      <h3>5.1 首页（文件夹总览）</h3>
+      <p><b>结构</b>：状态栏 → 问候+日期 → 搜索栏 → 今日概览（计划/复盘两张卡）→ 文件夹列表（工作/个人/学习）→ 新建文件夹。</p>
+      <p><b>交互</b>：点击文件夹行进入对应文件夹详情；点击今日概览卡进入当日记录；底部 Tab 切换。</p>
+    </div>
+    <div class="scr">
+      <h3>5.2 文件夹详情</h3>
+      <p><b>结构</b>：返回/标题/更多页头 → 面包屑 → 子文件夹网格（含「+ 新建文件夹」虚线卡）→ 全部记录（计划 <span class="badge b-plan">计划</span> / <span class="badge b-review">复盘</span> 分色）。</p>
+      <p><b>交互</b>：子文件夹卡可继续进入下一级；「+ 新建文件夹」可实时新增子文件夹（按当前文件夹隔离）；记录行进入对应编辑器。</p>
+    </div>
+    <div class="scr">
+      <h3>5.3 计划编辑器</h3>
+      <p><b>结构</b>：返回/新建计划/保存页头 → 类型徽标+路径 → 标题 → 提醒（如 18:00 提醒）→ 正文（自由文本）→ 清单块（含勾选态）→ 图片块 → 分割线 → 标签 → 底部块工具栏（文字/清单/图片/分割线/链接）。</p>
+    </div>
+    <div class="scr">
+      <h3>5.4 复盘编辑器</h3>
+      <p><b>结构</b>：橙色 <span class="badge b-review">复盘</span> 徽标 → 标题 → 关联计划卡（"已关联计划 / 完成 Q3 新品上线方案"）→ 正文 → 计划对照卡（完成度进度条）→ 不足说明 → 改进项块 → 标签。</p>
+      <p><b>交互</b>：关联计划卡点击可重新选择/解除关联。</p>
+    </div>
+    <div class="scr">
+      <h3>5.5 日历视图</h3>
+      <p><b>结构</b>：月份导航（2026年8月）→ 月历网格（今日 27 高亮）→ 选中日面板（如"8月27日·周四，今日 2 条"）→ 当日记录列表。</p>
+      <p><b>交互</b>：点击日期切换选中日面板；记录行进入编辑器。</p>
+    </div>
+    <div class="scr">
+      <h3>5.6 统计看板</h3>
+      <p><b>结构</b>：标题 + 周期切换（本周 ▾）→ 完成率卡（78%，18/23）→ 小指标（复盘篇数 12 / 连续复盘 5 天）→ 7 日趋势柱状图 → 标签分布卡。</p>
+      <p><b>交互</b>：周期切换刷新统计；标签分布可点击下钻。</p>
+    </div>
+  </div>
+
+  <h2>6. 视觉与体验规范</h2>
+  <h3>6.1 配色 Token</h3>
+  <div class="tok">
+    <div class="sw"><div class="c" style="background:#F4F5FA"></div><div class="t">背景 #F4F5FA</div></div>
+    <div class="sw"><div class="c" style="background:#FFFFFF"></div><div class="t">卡片 #FFFFFF</div></div>
+    <div class="sw"><div class="c" style="background:#ECECF1"></div><div class="t">描边 #ECECF1</div></div>
+    <div class="sw"><div class="c" style="background:#1A1D29"></div><div class="t">主文字 #1A1D29</div></div>
+    <div class="sw"><div class="c" style="background:#70747E"></div><div class="t">次文字 #70747E</div></div>
+    <div class="sw"><div class="c" style="background:#A0A4AE"></div><div class="t">弱文字 #A0A4AE</div></div>
+    <div class="sw"><div class="c" style="background:#4F6EF7"></div><div class="t">主题靛蓝 #4F6EF7</div></div>
+    <div class="sw"><div class="c" style="background:#FF8A3D"></div><div class="t">复盘橙 #FF8A3D</div></div>
+    <div class="sw"><div class="c" style="background:#2BB673"></div><div class="t">完成绿 #2BB673</div></div>
+  </div>
+  <h3>6.2 圆角与间距</h3>
+  <ul>
+    <li>卡片圆角 14–16；计划/复盘徽标 6；文件夹图标 10；头像 24；复选框 5；开关 13；进度条 3；图片块 12；</li>
+    <li>底部 Tab 药丸外层 36，选中态 26；</li>
+    <li>内容容器内边距 20/20/16；模块间距 16–18；状态栏高 36；底部 Tab 高 95；编辑工具栏高 64。</li>
+  </ul>
+  <h3>6.3 字体</h3>
+  <p>全局字体 <code>Inter</code>（中文回退 PingFang SC / 微软雅黑）。标题 18–20、正文 14–15、次要 12–13。</p>
+  <h3>6.4 风格基调</h3>
+  <p>活力高效：卡片化、轻投影、主题色点缀，类似 Todoist / 飞书的轻快观感。</p>
+
+  <h2>7. 数据结构（本地）</h2>
+  <div class="arch">Folder { id, name, parentId, color, createdAt }
+Record {
+  id, type: 'plan' | 'review',
+  folderId, title,
+  blocks: Block[], tags: string[],
+  reminder?: string,        // 如 "18:00"
+  linkedPlanId?: string,    // 仅 review 使用
+  createdAt, updatedAt
+}
+Block { type: 'text'|'checklist'|'image'|'divider'|'link',
+        text?, checked?, src?, href? }
+Tag { id, name, color }</div>
+
+  <h2>8. 非功能需求</h2>
+  <ul>
+    <li><b>性能</b>：冷启动 &lt; 1s；列表滚动 60fps；统计计算 &lt; 200ms。</li>
+    <li><b>兼容</b>：Android 9+，主流机型与分辨率自适应（以 360×800 为基准）。</li>
+    <li><b>存储</b>：本地存储，图片建议压缩后入库，单用户建议上限 200MB。</li>
+    <li><b>可访问性</b>：文字与背景对比度满足 WCAG AA；交互元素有清晰点击区（≥ 44px）。</li>
+  </ul>
+
+  <h2>9. 里程碑</h2>
+  <table>
+    <thead><tr><th>里程碑</th><th>内容</th><th>状态</th></tr></thead>
+    <tbody>
+      <tr><td>M1</td><td>设计稿 + 可交互原型（7 屏 → 现 6 屏）</td><td>已完成</td></tr>
+      <tr><td>M2</td><td>本地数据持久化（localStorage / 本地库）</td><td>待启动</td></tr>
+      <tr><td>M3</td><td>搜索 / 提醒 / 标签完整实现</td><td>待启动</td></tr>
+      <tr><td>M4</td><td>导出能力（Markdown/JSON）</td><td>待启动</td></tr>
+    </tbody>
+  </table>
+
+  <h2>10. 开放问题与风险</h2>
+  <ul>
+    <li><b>云同步是否纳入后续版本？</b>当前本地版不含；若需多设备，需补充账号体系（F-13）。</li>
+    <li><b>子文件夹嵌套深度</b>是否限制（建议 ≤ 4 级，避免路径过深）？</li>
+    <li><b>图片存储策略</b>：本地压缩阈值、是否允许外部图床？</li>
+    <li><b>统计口径</b>："完成率"如何定义（按勾选清单 / 按计划标记完成）需产品确认。</li>
+    <li><b>提醒可靠性</b>：本地通知在 App 退出后的触达能力依赖系统，需评估。</li>
+  </ul>
+
+  <footer class="doc">
+    本文档基于设计稿「工作计划与复盘备忘录App」（Ardot fileId 719336674507495）及需求评审结论整理。最近更新：2026-08-27，本地版已移除「我的/云同步」模块。
+  </footer>
+</div>
+</body>
+</html>

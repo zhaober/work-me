@@ -1,0 +1,8 @@
+{
+  "appId": "com.workmemo.app",
+  "appName": "工作备忘录",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

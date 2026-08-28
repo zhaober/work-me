@@ -1,0 +1,20 @@
+# ===== 依赖 =====
+node_modules/
+WorkMemoApp/node_modules/
+
+# ===== 构建产物 / 打包输出 =====
+WorkMemoApp/android/app/build/
+WorkMemoApp/android/.gradle/
+*.apk
+
+# ===== 大型下载/分发包（不入库） =====
+gradle-8.11.1-all.zip
+WorkMemoApp.zip
+
+# ===== 项目内部状态（WorkBuddy 运行时数据，非工程源码） =====
+.workbuddy/
+
+# ===== 系统/编辑器 =====
+.DS_Store
+Thumbs.db
+*.log

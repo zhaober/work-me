@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>工作计划与复盘备忘录</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#F4F5FA; --card:#FFFFFF; --border:#ECECF1;
+    --text:#1A1D29; --text-2:#70747E; --text-3:#A0A4AE;
+    --gray:#9AA0AB; --empty:#D8DBE2;
+    --accent:#4F6EF7; --accent-soft:#EEF1FE; --accent-stroke:#C9D2FB;
+    --orange:#FF8A3D; --orange-soft:#FFF1E6; --orange-card:#FFF8F2; --orange-border:#FBCDA8;
+    --green:#2BB673; --green-soft:#E8F8EF;
+    --progress-track:#F0E2D6; --check-off:#C9CDD6; --body:#2A2D36;
+    --danger:#E53935;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{font-family:"Inter","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,sans-serif;background:#E9EBF2;display:flex;justify-content:center;}
+  .app{width:100%;max-width:480px;height:100%;background:var(--bg);position:relative;overflow:hidden;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
+  .screen{position:absolute;top:0;left:0;right:0;bottom:95px;overflow-y:auto;display:none;padding-top:env(safe-area-inset-top);}
+  .screen.active{display:block;}
+  .screen.editor{bottom:64px;}
+  .content{padding:16px 20px;display:flex;flex-direction:column;}
+  .content.g18{gap:18px;} .content.g16{gap:16px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;}
+  .card.r14{border-radius:14px;}
+  .row-between{display:flex;align-items:center;justify-content:space-between;}
+  .row-center{display:flex;align-items:center;}
+  .gap8{gap:8px;}.gap10{gap:10px;}.gap12{gap:12px;}
+  .t-greet{font-size:20px;font-weight:700;color:var(--text);}
+  .t-date{font-size:13px;font-weight:500;color:var(--text-2);}
+  .t-section{font-size:16px;font-weight:600;color:var(--text);}
+  .t-label{font-size:12px;font-weight:500;color:var(--text-2);}
+  .t-sub{font-size:12px;font-weight:400;color:var(--text-2);}
+  .t-body{font-size:15px;font-weight:400;color:var(--body);line-height:1.5;}
+  .t-title{font-size:22px;font-weight:700;color:var(--text);}
+  .t-meta{font-size:12px;font-weight:400;color:var(--text-2);}
+  .t-name{font-size:14px;font-weight:600;color:var(--text);}
+  .t-rec-title{font-size:14px;font-weight:500;color:var(--text);}
+  .t-path{font-size:13px;font-weight:400;color:var(--text-2);}
+  .chev{color:var(--accent);} .chev-gray{color:var(--text-3);}
+  /* search */
+  .search{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:8px;}
+  .search input{border:none;outline:none;background:transparent;font-size:14px;color:var(--text);font-family:inherit;width:100%;}
+  .search input::placeholder{color:var(--text-3);}
+  /* today overview */
+  .overview{display:flex;flex-direction:column;gap:12px;}
+  .ov-card{border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--border);}
+  .ov-num-row{display:flex;align-items:baseline;gap:6px;}
+  .ov-big-plan{font-size:28px;font-weight:700;color:var(--accent);line-height:1;}
+  .ov-big-review{font-size:24px;font-weight:700;color:var(--orange);line-height:1;}
+  /* folder rows */
+  .frow{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+  .ficon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ftext{display:flex;flex-direction:column;gap:2px;}
+  .newfolder{border:1px solid var(--accent-stroke);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--accent);font-size:14px;font-weight:500;background:transparent;cursor:pointer;}
+  /* header row */
+  .head{display:flex;align-items:center;justify-content:space-between;}
+  .head .title{font-size:18px;font-weight:700;color:var(--text);}
+  .back,.more,.bell,.del{background:none;border:none;cursor:pointer;display:flex;padding:0;color:var(--text);}
+  .icon-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;}
+  .icon-btn:active{background:rgba(0,0,0,.05);}
+  .export-btn{border:1px solid var(--border);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--accent);background:var(--card);cursor:pointer;}
+  /* breadcrumb */
+  .crumb{display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:12px;color:var(--text-2);}
+  .crumb .seg{cursor:pointer;} .crumb .seg.cur{color:var(--text);font-weight:600;} .crumb .sep{color:var(--text-3);}
+  /* subfolders */
+  .subgrid{display:flex;gap:12px;flex-wrap:wrap;}
+  .subgrid .scard{flex:1;min-width:120px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;}
+  .subgrid .scard.newsub{border-style:dashed;border-color:var(--accent-stroke);}
+  /* record rows */
+  .rec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+  .rec .left{display:flex;align-items:center;gap:10px;min-width:0;}
+  .rec .rtext{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .rec .rtext .t-rec-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .badge{width:40px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;}
+  .badge.plan{background:var(--accent);} .badge.review{background:var(--orange);}
+  .link-blue{color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;}
+  /* editor */
+  .etype{display:flex;align-items:center;gap:8px;}
+  .reminder{background:var(--accent-soft);border-radius:14px;padding:5px 10px;display:inline-flex;align-items:center;gap:6px;align-self:flex-start;cursor:pointer;border:none;font-family:inherit;}
+  .reminder span{font-size:12px;font-weight:500;color:var(--accent);}
+  .checklist{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+  .citem{display:flex;align-items:center;gap:10px;}
+  .cb{width:18px;height:18px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .cb.on{background:var(--accent);} .cb.off{background:transparent;border:1.5px solid var(--check-off);}
+  .imgblock{width:100%;height:140px;border-radius:12px;background:#E9EBF2;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:12px;cursor:pointer;background-size:cover;background-position:center;overflow:hidden;position:relative;}
+  .imgblock.has-img{color:transparent;}
+  .divider{height:1px;background:var(--border);width:100%;}
+  .tags{display:flex;gap:8px;flex-wrap:wrap;cursor:pointer;}
+  .tag{background:var(--accent-soft);color:var(--accent);border-radius:14px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;}
+  .tag.orange{background:var(--orange-soft);color:var(--orange);} .tag.green{background:var(--green-soft);color:var(--green);}
+  /* linked / compare */
+  .linked{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;}
+  .linked .lt{display:flex;flex-direction:column;gap:2px;}
+  .compare{background:var(--orange-card);border:1px solid var(--orange-border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+  .pbar{height:6px;border-radius:3px;background:var(--progress-track);overflow:hidden;}
+  .pbar > i{display:block;height:100%;background:var(--orange);border-radius:3px;}
+  .cdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .cdot.on{background:var(--orange);} .cdot.off{background:var(--check-off);}
+  /* calendar */
+  .calcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 12px;}
+  .calhead{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:6px;}
+  .calhead span{text-align:center;font-size:11px;color:var(--gray);}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .calcell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text);border-radius:14px;cursor:pointer;position:relative;}
+  .calcell.empty{color:var(--empty);cursor:default;}
+  .calcell.has{font-weight:600;}
+  .calcell.has::after{content:"";position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--accent);}
+  .calcell.today{background:var(--accent);color:#fff;font-weight:600;}
+  .calcell.today.has::after{background:#fff;}
+  .calcell.sel{outline:2px solid var(--accent);outline-offset:-2px;}
+  .daypanel{display:flex;flex-direction:column;gap:4px;}
+  /* stats */
+  .period{background:var(--accent-soft);border-radius:14px;padding:8px 12px;color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;}
+  .metric-row{display:flex;gap:12px;}
+  .metric-row .card{flex:1;padding:16px;display:flex;flex-direction:column;gap:4px;}
+  .mbig-orange{font-size:24px;font-weight:700;color:var(--orange);}
+  .mbig-green{font-size:24px;font-weight:700;color:var(--green);}
+  .mbig-blue{font-size:32px;font-weight:700;color:var(--accent);}
+  .bars{display:flex;align-items:flex-end;gap:8px;height:96px;padding-top:4px;}
+  .bars .bar{flex:1;border-radius:6px;background:var(--accent);min-height:6px;}
+  .empty-hint{padding:24px;text-align:center;color:var(--text-3);font-size:13px;}
+  /* search results */
+  .result-row{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;cursor:pointer;}
+  .result-row .rp{font-size:12px;color:var(--text-3);}
+  /* toast */
+  .toast{position:absolute;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:#fff;font-size:13px;padding:10px 16px;border-radius:12px;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none;max-width:300px;}
+  .toast.show{opacity:.96;}
+  /* tab bar */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(95px + env(safe-area-inset-bottom));background:var(--bg);padding:12px 21px env(safe-area-inset-bottom);display:none;z-index:6;}
+  .tabbar.show{display:block;}
+  .pill{background:var(--card);border:1px solid var(--border);border-radius:36px;height:62px;display:flex;}
+  .tab{flex:1;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:transparent;color:var(--gray);border:none;cursor:pointer;font-family:inherit;}
+  .tab.active{background:var(--accent);color:#fff;}
+  .tab span{font-size:10px;font-weight:600;} .tab svg{display:block;}
+  /* editor toolbar */
+  .editortoolbar{position:absolute;left:0;right:0;bottom:0;height:calc(64px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--border);display:none;align-items:center;justify-content:center;gap:18px;z-index:6;padding:0 20px env(safe-area-inset-bottom);}
+  .editortoolbar.show{display:flex;}
+  .etbtn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--text-2);border-radius:10px;}
+  .etbtn:active{background:rgba(0,0,0,.05);}
+
+  /* modal prompt/confirm */
+  .modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:50;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.show{display:flex;}
+  .modal-card{background:var(--card);border-radius:18px;padding:20px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px;box-shadow:0 16px 48px rgba(0,0,0,.2);}
+  .modal-card .mtitle{font-size:17px;font-weight:700;color:var(--text);}
+  .modal-card .mmsg{font-size:14px;color:var(--text-2);line-height:1.5;}
+  .modal-card input{border:none;border-bottom:1px solid var(--border);padding:10px 0;font-size:15px;outline:none;color:var(--text);font-family:inherit;background:transparent;width:100%;}
+  .modal-card input:focus{border-color:var(--accent);}
+  .modal-actions{display:flex;justify-content:flex-end;gap:14px;margin-top:4px;}
+  .modal-actions button{background:none;border:none;font-size:15px;font-weight:600;color:var(--text-2);cursor:pointer;padding:6px 8px;}
+  .modal-actions .primary{color:var(--accent);}
+
+  /* action sheet */
+  .sheet-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:50;display:none;}
+  .sheet-overlay.show{display:block;}
+  .sheet-card{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:20px 20px 0 0;padding:12px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:4px;z-index:51;transform:translateY(100%);transition:transform .2s ease;}
+  .sheet-overlay.show .sheet-card{transform:translateY(0);}
+  .sheet-item{padding:14px;font-size:15px;color:var(--text);text-align:center;border-radius:12px;cursor:pointer;}
+  .sheet-item.danger{color:var(--danger);}
+  .sheet-item:active{background:var(--bg);}
+  .sheet-cancel{margin-top:8px;font-weight:600;color:var(--text-2);background:var(--bg);}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ================= SCREEN: HOME ================= -->
+  <section class="screen active" id="home" data-tab="folders">
+    <div class="content g18">
+      <div class="row-between">
+        <div>
+          <div class="t-greet">早上好，今天也要高效</div>
+          <div class="t-date">周四 · 8月27日</div>
+        </div>
+        <button class="export-btn" id="exportBtn">导出</button>
+      </div>
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6" stroke="#A0A4AE" stroke-width="1.6"/><path d="M12.5 12.5L16 16" stroke="#A0A4AE" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input id="searchInput" placeholder="搜索计划、复盘、文件夹、标签" />
+      </div>
+      <div class="overview" id="overview"></div>
+      <div class="head">
+        <div class="t-section">我的文件夹</div>
+        <svg class="chev" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#4F6EF7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div id="homeFolders"></div>
+      <div class="newfolder" id="newRootFolder">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1V13M1 7H13" stroke="#4F6EF7" stroke-width="2" stroke-linecap="round"/></svg>
+        新建文件夹
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN: FOLDER DETAIL ================= -->
+  <section class="screen" id="folder" data-tab="folders">
+    <div class="content g16" id="folderContent"></div>
+  </section>
+
+  <!-- ================= SCREEN: SEARCH RESULTS ================= -->
+  <section class="screen" id="search" data-tab="folders">
+    <div class="content g16" id="searchContent"></div>
+  </section>
+
+  <!-- ================= SCREEN: PLAN EDITOR ================= -->
+  <section class="screen editor" id="plan" data-no-tab>
+    <div class="content g16">
+      <div class="head">
+        <button class="back icon-btn" data-back><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M6 1L1 7L6 13" stroke="#1A1D29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="title" id="planHeadTitle" style="font-size:17px">新建计划</div>
+        <div class="row-center gap4">
+          <button class="del icon-btn" id="planDel" title="删除" style="display:none;color:var(--danger)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 5H13M12 5V13C12 13.6 11.6 14 11 14H5C4.4 14 4 13.6 4 13V5M6 5V3C6 2.4 6.4 2 7 2H9C9.6 2 10 2.4 10 3V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="more icon-btn" data-save title="保存"><svg width="16" height="12" viewBox="0 0 16 12" fill="none"><path d="M2 6.5L6 10.5L14 1.5" stroke="#4F6EF7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+      <div id="planContent"></div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN: REVIEW EDITOR ================= -->
+  <section class="screen editor" id="review" data-no-tab>
+    <div class="content g16">
+      <div class="head">
+        <button class="back icon-btn" data-back><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M6 1L1 7L6 13" stroke="#1A1D29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="title" id="reviewHeadTitle" style="font-size:17px">新建复盘</div>
+        <div class="row-center gap4">
+          <button class="del icon-btn" id="reviewDel" title="删除" style="display:none;color:var(--danger)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 5H13M12 5V13C12 13.6 11.6 14 11 14H5C4.4 14 4 13.6 4 13V5M6 5V3C6 2.4 6.4 2 7 2H9C9.6 2 10 2.4 10 3V5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="more icon-btn" data-save title="保存"><svg width="16" height="12" viewBox="0 0 16 12" fill="none"><path d="M2 6.5L6 10.5L14 1.5" stroke="#4F6EF7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+      <div id="reviewContent"></div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN: CALENDAR ================= -->
+  <section class="screen" id="calendar" data-tab="calendar">
+    <div class="content g16">
+      <div class="head">
+        <button class="back icon-btn" data-cal-prev style="color:var(--accent)"><svg width="10" height="14" viewBox="0 0 10 14" fill="none"><path d="M8.5 1L2 7L8.5 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="title" id="calTitle" style="font-size:18px;cursor:pointer" data-cal-jump>2026年8月</div>
+        <button class="back icon-btn" data-cal-next style="color:var(--accent)"><svg width="10" height="14" viewBox="0 0 10 14" fill="none"><path d="M1.5 1L8 7L1.5 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="calcard">
+        <div class="calhead"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+        <div class="calgrid" id="calgrid"></div>
+      </div>
+      <div class="daypanel" id="dayPanel"></div>
+      <div id="calRecords"></div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN: STATS ================= -->
+  <section class="screen" id="stats" data-tab="stats">
+    <div class="content g16" id="statsContent"></div>
+  </section>
+
+  <!-- TAB BAR -->
+  <div class="tabbar show" id="tabbar">
+    <div class="pill">
+      <button class="tab active" data-tab="folders">
+        <svg width="15" height="12" viewBox="0 0 15 12" fill="none"><path d="M1.5 2C1.5 1.4 2 1 2.5 1H5.5L7 2.6H12.5C13 2.6 13.5 3.1 13.5 3.7V10.5C13.5 11.1 13 11.5 12.5 11.5H2.5C2 11.5 1.5 11.1 1.5 10.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span>文件夹</span>
+      </button>
+      <button class="tab" data-tab="calendar">
+        <svg width="15" height="14" viewBox="0 0 15 14" fill="none"><rect x="1.5" y="2.5" width="12" height="10.5" rx="1.8" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 5.5H13.5M4.5 1V3.5M10.5 1V3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>日历</span>
+      </button>
+      <button class="tab" data-tab="stats">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1.5 13.5V8.5M5.2 13.5V4.8M8.9 13.5V10.5M12.5 13.5V1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span>统计</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- EDITOR TOOLBAR -->
+  <div class="editortoolbar" id="editortoolbar">
+    <div class="etbtn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 13V3H6L8 5L10 3H13V13H3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+    <div class="etbtn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 4H13M3 8H13M3 12H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+    <div class="etbtn" id="imgTool"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="7" r="1.4" fill="currentColor"/><path d="M3 12L6.5 8.5L9 11L11 9L14 12" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+    <div class="etbtn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/></svg></div>
+    <div class="etbtn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.5 9.5L3 6C2.4 5.4 2.4 4.6 3 4C3.6 3.4 4.4 3.4 5 4L8.5 7.5M9.5 9.5L12 12.5C12.6 13.1 13.4 13.1 14 12.5C14.6 11.9 14.6 11.1 14 10.5L10.5 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  </div>
+
+  <!-- MODAL (prompt / confirm) -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-card">
+      <div class="mtitle" id="modalTitle">标题</div>
+      <div class="mmsg" id="modalMsg" style="display:none"></div>
+      <input type="text" id="modalInput" placeholder="" />
+      <div class="modal-actions">
+        <button id="modalCancel">取消</button>
+        <button class="primary" id="modalOk">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTION SHEET -->
+  <div class="sheet-overlay" id="sheetOverlay">
+    <div class="sheet-card" id="sheetCard">
+      <div id="sheetItems"></div>
+      <div class="sheet-item sheet-cancel" id="sheetCancel">取消</div>
+    </div>
+  </div>
+
+  <input type="file" id="imgFile" accept="image/*" style="display:none" />
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+"use strict";
+/* ============ DATA MODEL (local, single source of truth) ============ */
+var TODAY = '2026-08-27';
+var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
+var DB = {
+  folders: {
+    work:    {name:'工作', parent:null, color:'accent'},
+    personal:{name:'个人', parent:null, color:'orange'},
+    study:   {name:'学习', parent:null, color:'green'},
+    f_q3:    {name:'2026 Q3', parent:'work', color:'accent'},
+    f_daily: {name:'日常', parent:'work', color:'orange'},
+    f_health:{name:'健康', parent:'personal', color:'green'},
+    f_finan: {name:'理财', parent:'personal', color:'accent'},
+    f_course:{name:'课程', parent:'study', color:'orange'},
+    f_book:  {name:'读书', parent:'study', color:'green'}
+  },
+  records: {
+    r1:{type:'plan',   folderId:'work',     title:'完成 Q3 新品上线方案', date:'2026-08-27', time:'09:20', reminder:'18:00', tags:['重要','跟进'], image:null,
+        checklist:[{t:'拉齐研发排期',c:true},{t:'确认灰度方案',c:false},{t:'发布上线通知',c:false}], body:'上午：与研发对齐上线排期，确认灰度方案与时间窗。'},
+    r2:{type:'review', folderId:'work',     title:'复盘：周会跟进事项',   date:'2026-08-26', time:'18:30', reminder:null, tags:[], image:null, checklist:[], body:'本周周会事项跟进情况复盘。'},
+    r3:{type:'plan',   folderId:'work',     title:'梳理下季度 OKR 初稿', date:'2026-08-25', time:'10:00', reminder:null, tags:[], image:null, checklist:[], body:''},
+    r4:{type:'review', folderId:'personal', title:'复盘：本周运动打卡',   date:'2026-08-27', time:'21:00', reminder:null, tags:['健康'], image:null, checklist:[], body:''},
+    r5:{type:'plan',   folderId:'personal', title:'制定 9 月月度预算',   date:'2026-08-26', time:'20:00', reminder:null, tags:['理财'], image:null, checklist:[], body:''},
+    r6:{type:'review', folderId:'personal', title:'复盘：亲子时间记录',   date:'2026-08-23', time:'19:00', reminder:null, tags:[], image:null, checklist:[], body:''},
+    r7:{type:'plan',   folderId:'study',    title:'完成《设计心理学》第 3 章', date:'2026-08-27', time:'20:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
+    r8:{type:'review', folderId:'study',    title:'复盘：英语口语练习',   date:'2026-08-24', time:'22:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
+    r9:{type:'plan',   folderId:'study',    title:'整理 LeetCode 错题集', date:'2026-08-22', time:'21:00', reminder:null, tags:[], image:null, checklist:[], body:''}
+  }
+};
+function childrenOf(id){ var r=[]; for(var k in DB.folders){ if(DB.folders[k].parent===id) r.push(k); } return r; }
+function recordsOf(id){ var r=[]; for(var k in DB.records){ if(DB.records[k].folderId===id) r.push(k); } return r; }
+function allRecords(){ return Object.keys(DB.records); }
+function pathOf(id){ var p=[]; var cur=id; while(cur){ p.unshift(DB.folders[cur].name); cur=DB.folders[cur].parent; } return p; }
+function folderMeta(id){ var c=childrenOf(id).length, n=recordsOf(id).length; var s=[]; if(n) s.push(n+' 条'); if(c) s.push(c+' 子文件夹'); return s.join(' · ')||'空'; }
+
+/* ============ PERSISTENCE (localStorage) ============ */
+var DB_VERSION = 1;
+var LS_KEY = 'work-memo-db-v' + DB_VERSION;
+(function loadDB(){
+  try {
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; }
+    }
+  } catch(e){}
+})();
+function saveDB(){
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records}));
+  } catch(e){
+    toast('保存失败：本地存储空间不足（图片可能过多）');
+  }
+}
+
+/* ============ NAVIGATION ============ */
+var navStack = [{screen:'home'}];
+var currentFolder = null;
+function show(id){
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  var scr = document.getElementById(id); scr.classList.add('active');
+  var isEditor = scr.hasAttribute('data-no-tab');
+  document.getElementById('tabbar').classList.toggle('show', !isEditor);
+  document.getElementById('editortoolbar').classList.toggle('show', isEditor);
+  if(!isEditor){ var tab=scr.getAttribute('data-tab'); document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.getAttribute('data-tab')===tab); }); }
+  scr.scrollTop = 0;
+}
+function goFolder(id){ currentFolder=id; navStack.push({screen:'folder', id:id}); renderFolder(id); show('folder'); }
+function openRecord(recId){ var r=DB.records[recId]; if(!r) return; loadEditor(r.type, recId, r.folderId); navStack.push({screen:r.type, recId:recId}); paintEditor(); show(r.type); }
+function newRecord(type){ loadEditor(type, null, currentFolder||'work'); navStack.push({screen:type, recId:null, folderId:currentFolder}); paintEditor(); show(type); }
+
+/* ============ MODAL & SHEET ============ */
+var modalInput=document.getElementById('modalInput'), modalTitle=document.getElementById('modalTitle'), modalMsg=document.getElementById('modalMsg');
+var modalOverlay=document.getElementById('modalOverlay');
+var modalCb=null, modalMode='prompt';
+function openPromptModal(title, placeholder, value, cb){
+  modalMode='prompt'; modalTitle.textContent=title; modalMsg.style.display='none';
+  modalInput.style.display='block'; modalInput.placeholder=placeholder||''; modalInput.value=value||'';
+  modalOverlay.classList.add('show'); modalInput.focus(); modalCb=cb;
+}
+function openConfirmModal(title, msg, cb){
+  modalMode='confirm'; modalTitle.textContent=title; modalMsg.textContent=msg; modalMsg.style.display='block';
+  modalInput.style.display='none'; modalInput.value='';
+  modalOverlay.classList.add('show'); modalCb=cb;
+}
+function closeModal(){ modalOverlay.classList.remove('show'); modalCb=null; }
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+document.getElementById('modalOk').addEventListener('click', function(){ if(modalCb){ if(modalMode==='prompt') modalCb(modalInput.value); else modalCb(true); } closeModal(); });
+modalInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('modalOk').click(); } });
+
+var sheetOverlay=document.getElementById('sheetOverlay'), sheetItems=document.getElementById('sheetItems');
+var sheetCb=null;
+function openSheet(items, cb){ // items: [{label, danger}]
+  sheetItems.innerHTML=items.map(function(it,i){ return '<div class="sheet-item '+(it.danger?'danger':'')+'" data-si="'+i+'">'+it.label+'</div>'; }).join('');
+  sheetOverlay.classList.add('show'); sheetCb=cb;
+}
+function closeSheet(){ sheetOverlay.classList.remove('show'); sheetCb=null; }
+document.getElementById('sheetCancel').addEventListener('click', closeSheet);
+sheetOverlay.addEventListener('click', function(e){ if(e.target===sheetOverlay) closeSheet(); });
+sheetItems.addEventListener('click', function(e){ var item=e.target.closest('[data-si]'); if(!item) return; var idx=parseInt(item.getAttribute('data-si'),10); if(sheetCb) sheetCb(idx); closeSheet(); });
+
+/* ============ RENDER: HOME ============ */
+function renderHome(){
+  var root = childrenOf(null);
+  var html = root.map(function(id){
+    var f=DB.folders[id];
+    return '<div class="frow" data-folder="'+id+'">'
+      +'<div class="row-center gap12"><div class="ficon" style="background:var(--'+f.color+'-soft)">'+folderSVG(COLORS[f.color])+'</div>'
+      +'<div class="ftext"><div class="t-name">'+f.name+'</div><div class="t-meta">'+folderMeta(id)+'</div></div></div>'
+      +'<svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+  }).join('');
+  document.getElementById('homeFolders').innerHTML = html;
+  var plans=0, reviews=0; allRecords().forEach(function(k){ var r=DB.records[k]; if(r.date!==TODAY) return; if(r.type==='plan') plans++; else reviews++; });
+  document.getElementById('overview').innerHTML =
+    '<div class="ov-card"><div class="t-label">今日计划</div><div class="ov-num-row"><div class="ov-big-plan">'+plans+'</div><div class="t-sub">项 · 今日待办</div></div></div>'
+   +'<div class="ov-card"><div class="t-label">今日复盘</div><div class="ov-num-row"><div class="ov-big-review">'+reviews+'</div><div class="t-sub">篇 · 记录收获</div></div></div>';
+}
+function folderSVG(stroke){ return '<svg width="18" height="16" viewBox="0 0 18 16" fill="none"><path d="M2 3.5C2 2.7 2.7 2 3.5 2H7L9 4.2H14.5C15.3 4.2 16 4.9 16 5.7V12.5C16 13.3 15.3 14 14.5 14H3.5C2.7 14 2 13.3 2 12.5V3.5Z" stroke="'+stroke+'" stroke-width="1.5" stroke-linejoin="round"/></svg>'; }
+
+/* ============ RENDER: FOLDER DETAIL ============ */
+function renderFolder(id){
+  currentFolder = id;
+  var f = DB.folders[id];
+  var crumb = pathOf(id).map(function(n,i,arr){ var cls = i===arr.length-1?'seg cur':'seg'; return '<span class="'+cls+'" data-crumb="'+i+'">'+n+'</span>'; }).join('<span class="sep">/</span>');
+  var kids = childrenOf(id);
+  var subs = kids.map(function(k){
+    var c=DB.folders[k];
+    return '<div class="scard" data-sub="'+k+'"><div class="ficon" style="background:var(--'+c.color+'-soft)">'+folderSVG(COLORS[c.color])+'</div><div class="t-name">'+c.name+'</div><div class="t-meta">'+folderMeta(k)+'</div></div>';
+  }).join('');
+  var newsub = '<div class="scard newsub" data-newsub><div class="ficon" style="background:var(--accent-soft)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1V13M1 7H13" stroke="#4F6EF7" stroke-width="2" stroke-linecap="round"/></svg></div><div class="t-name" style="color:var(--accent)">新建文件夹</div><div class="t-meta">点击新建</div></div>';
+  var recs = recordsOf(id).map(function(k){
+    var r=DB.records[k];
+    return '<div class="rec" data-rec="'+k+'"><div class="left"><div class="badge '+r.type+'">'+(r.type==='plan'?'计划':'复盘')+'</div><div class="rtext"><div class="t-rec-title">'+r.title+'</div><div class="t-meta">'+r.date+' '+r.time+'</div></div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+  }).join('');
+  if(!recs) recs = '<div class="empty-hint">该文件夹还没有记录</div>';
+  document.getElementById('folderContent').innerHTML =
+    '<div class="head"><button class="back icon-btn" data-back><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M6 1L1 7L6 13" stroke="#1A1D29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="title">'+f.name+'</div><button class="more icon-btn" data-folder-menu title="文件夹选项"><svg width="18" height="4" viewBox="0 0 18 4" fill="none"><circle cx="3" cy="2" r="2" fill="#1A1D29"/><circle cx="9" cy="2" r="2" fill="#1A1D29"/><circle cx="15" cy="2" r="2" fill="#1A1D29"/></svg></button></div>'
+   +'<div class="crumb">'+crumb+'</div>'
+   +'<div class="t-name">子文件夹</div>'
+   +'<div class="subgrid">'+subs+newsub+'</div>'
+   +'<div class="head"><div class="t-name">全部记录</div><div class="row-center gap8"><span class="link-blue" data-newrec="plan">＋ 计划</span><span class="link-blue" data-newrec="review">＋ 复盘</span></div></div>'+ recs;
+}
+
+/* ============ RENDER: SEARCH ============ */
+function renderSearch(q){
+  q=(q||'').trim().toLowerCase();
+  document.getElementById('searchContent').innerHTML = '<div class="head"><div class="t-section">搜索'+(q?'："'+q+'"':'')+'</div></div>';
+  if(!q){ document.getElementById('searchContent').innerHTML += '<div class="empty-hint">输入关键词，搜索计划 / 复盘 / 文件夹 / 标签</div>'; return; }
+  var res=[];
+  allRecords().forEach(function(k){ var r=DB.records[k]; var hay=(r.title+' '+r.tags.join(' ')+' '+(r.body||'')).toLowerCase(); if(hay.indexOf(q)>=0) res.push(k); });
+  for(var id in DB.folders){ if(DB.folders[id].name.toLowerCase().indexOf(q)>=0) res.push('F:'+id); }
+  if(!res.length){ document.getElementById('searchContent').innerHTML += '<div class="empty-hint">没有匹配的结果</div>'; return; }
+  var html = res.map(function(item){
+    if(typeof item==='string' && item.indexOf('F:')===0){
+      var fid=item.slice(2); var f=DB.folders[fid];
+      return '<div class="result-row" data-folder="'+fid+'"><div class="row-center gap8"><div class="badge plan" style="background:var(--gray)">文件夹</div></div><div class="t-rec-title">'+f.name+'</div><div class="rp">'+pathOf(fid).join(' / ')+'</div></div>';
+    }
+    var r=DB.records[item];
+    return '<div class="result-row" data-rec="'+item+'"><div class="row-center gap8"><div class="badge '+r.type+'">'+(r.type==='plan'?'计划':'复盘')+'</div></div><div class="t-rec-title">'+r.title+'</div><div class="rp">'+pathOf(r.folderId).join(' / ')+' · '+r.date+'</div></div>';
+  }).join('');
+  document.getElementById('searchContent').innerHTML += html;
+}
+
+/* ============ RENDER: CALENDAR ============ */
+var calYear = 2026, calMonth = 7;
+var calSelected = 27;
+function renderCalendar(){
+  var maxDay = new Date(calYear, calMonth+1, 0).getDate();
+  if(calSelected>maxDay) calSelected=maxDay;
+  document.getElementById('calTitle').textContent = calYear+'年'+(calMonth+1)+'月';
+  var grid=document.getElementById('calgrid'); grid.innerHTML='';
+  var firstDow = (new Date(calYear, calMonth, 1).getDay()+6)%7;
+  var days=[]; for(var p=0;p<firstDow;p++) days.push(null);
+  for(var d=1;d<=maxDay;d++) days.push(d);
+  while(days.length<42) days.push(null);
+  var dated={};
+  allRecords().forEach(function(k){ var r=DB.records[k]; if(!r.date) return; var pp=r.date.split('-'); if(parseInt(pp[0],10)===calYear && parseInt(pp[1],10)===calMonth+1){ var dd=parseInt(pp[2],10); dated[dd]=(dated[dd]||0)+1; } });
+  var tArr=TODAY.split('-'); var tY=parseInt(tArr[0],10), tM=parseInt(tArr[1],10), tD=parseInt(tArr[2],10);
+  days.forEach(function(d){
+    var cell=document.createElement('div'); cell.className='calcell';
+    if(d===null){ cell.classList.add('empty'); }
+    else{
+      cell.textContent=d;
+      if(calYear===tY && calMonth+1===tM && d===tD) cell.classList.add('today');
+      if(dated[d]) cell.classList.add('has');
+      if(d===calSelected) cell.classList.add('sel');
+      cell.setAttribute('data-day', d);
+    }
+    grid.appendChild(cell);
+  });
+  var recs = allRecords().filter(function(k){ var r=DB.records[k]; if(!r.date) return false; var pp=r.date.split('-'); return parseInt(pp[0],10)===calYear && parseInt(pp[1],10)===calMonth+1 && parseInt(pp[2],10)===calSelected; });
+  var wd=['日','一','二','三','四','五','六'][new Date(calYear,calMonth,calSelected).getDay()];
+  document.getElementById('dayPanel').innerHTML='<div class="t-section">'+calYear+'年'+(calMonth+1)+'月'+calSelected+'日 · 周'+wd+'</div><div class="t-meta">当日 '+recs.length+' 条记录</div>';
+  var html = recs.map(function(k){
+    var r=DB.records[k];
+    return '<div class="rec" data-rec="'+k+'"><div class="left"><div class="badge '+r.type+'">'+(r.type==='plan'?'计划':'复盘')+'</div><div class="rtext"><div class="t-rec-title">'+r.title+'</div><div class="t-meta">'+r.time+'</div></div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+  }).join('');
+  if(!html) html='<div class="empty-hint">这一天还没有记录</div>';
+  document.getElementById('calRecords').innerHTML=html;
+}
+
+/* ============ RENDER: STATS ============ */
+function renderStats(){
+  var recs=allRecords().map(function(k){return DB.records[k];});
+  var plans=recs.filter(function(r){return r.type==='plan';});
+  var reviews=recs.filter(function(r){return r.type==='review';});
+  var total=0, done=0;
+  plans.forEach(function(p){ if(!p.checklist.length){ total+=1; done+=1; } else { total+=p.checklist.length; done+=p.checklist.filter(function(c){return c.c;}).length; } });
+  var rate = total? Math.round(done/total*100):0;
+  var streak=0; var cur=new Date(2026,7,27);
+  while(true){ var key=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0');
+    var has=reviews.some(function(r){return r.date===key;}); if(!has) break; streak++; cur.setDate(cur.getDate()-1); if(streak>365) break; }
+  var trend=[]; for(var i=6;i>=0;i--){ var dt=new Date(2026,7,27); dt.setDate(dt.getDate()-i); var kk=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); trend.push(recs.filter(function(r){return r.date===kk;}).length); }
+  var maxT=Math.max.apply(null,trend.concat([1]));
+  var bars=trend.map(function(v){ return '<div class="bar" style="height:'+Math.max(6,Math.round(v/maxT*88))+'px"></div>'; }).join('');
+  var tagCount={}; recs.forEach(function(r){ (r.tags||[]).forEach(function(t){ tagCount[t]=(tagCount[t]||0)+1; }); });
+  var tagHtml=Object.keys(tagCount).length? Object.keys(tagCount).map(function(t){ return '<div class="tag" data-tag="'+t+'">'+t+' '+tagCount[t]+'</div>'; }).join('') : '<div class="empty-hint">暂无标签</div>';
+  document.getElementById('statsContent').innerHTML =
+    '<div class="head"><div class="title" style="font-size:18px">统计</div><div class="period" id="periodBtn">本周 ▾</div></div>'
+   +'<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:6px"><div class="t-label">计划完成率</div><div class="mbig-blue">'+rate+'%</div><div class="t-sub">已完成 '+done+' / 共 '+total+' 项</div></div>'
+   +'<div class="metric-row"><div class="card"><div class="t-label">复盘篇数</div><div class="mbig-orange">'+reviews.length+'</div></div><div class="card"><div class="t-label">连续复盘</div><div class="mbig-green">'+streak+' 天</div></div></div>'
+   +'<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:12px"><div class="t-section">近 7 日记录数</div><div class="bars">'+bars+'</div></div>'
+   +'<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:12px"><div class="t-section">标签分布</div><div class="tags">'+tagHtml+'</div></div>';
+}
+
+/* ============ EXPORT ============ */
+function exportData(){
+  var payload = { exportedAt:new Date().toISOString(), folders:DB.folders, records:DB.records };
+  var blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='工作计划与复盘-导出.json'; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  toast('已导出 JSON 文件');
+}
+
+/* ============ TOAST ============ */
+var toastTimer=null;
+function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); },2200); }
+
+/* ============ EVENT DELEGATION ============ */
+document.getElementById('app').addEventListener('click', function(e){
+  // back
+  var back=e.target.closest('[data-back]'); if(back){ if(navStack.length>1) navStack.pop(); var prev=navStack[navStack.length-1]; if(prev.screen==='folder'){ renderFolder(prev.id); } else if(prev.screen==='plan'||prev.screen==='review'){ loadEditor(prev.type, prev.recId, prev.folderId); paintEditor(); } else if(prev.screen==='home'){ renderHome(); } else if(prev.screen==='search'){ renderSearch(document.getElementById('searchInput').value); } else if(prev.screen==='calendar'){ renderCalendar(); } else if(prev.screen==='stats'){ renderStats(); } show(prev.screen); return; }
+  // home folder row
+  var fr=e.target.closest('[data-folder]'); if(fr){ goFolder(fr.getAttribute('data-folder')); return; }
+  // search result folder/record
+  var sres=e.target.closest('#searchContent [data-folder]'); if(sres){ goFolder(sres.getAttribute('data-folder')); return; }
+  var srec=e.target.closest('#searchContent [data-rec]'); if(srec){ openRecord(srec.getAttribute('data-rec')); return; }
+  // folder detail: subfolder
+  var sub=e.target.closest('[data-sub]'); if(sub){ goFolder(sub.getAttribute('data-sub')); return; }
+  // folder detail: breadcrumb segment
+  var seg=e.target.closest('[data-crumb]'); if(seg){ var idx=parseInt(seg.getAttribute('data-crumb'),10); var p=pathOf(currentFolder); var target=null; for(var id in DB.folders){ if(DB.folders[id].name===p[idx] && pathOf(id).length-1===idx){ target=id; break; } } if(target!==null) goFolder(target); return; }
+  // folder detail: new subfolder
+  var ns=e.target.closest('[data-newsub]'); if(ns){ openPromptModal('新建子文件夹', '输入文件夹名称', '未命名文件夹', function(v){ var name=(v||'').trim(); if(name){ var nid='u'+Date.now(); DB.folders[nid]={name:name,parent:currentFolder,color:'accent'}; saveDB(); renderFolder(currentFolder); } }); return; }
+  // folder detail: new record
+  var nr=e.target.closest('[data-newrec]'); if(nr){ newRecord(nr.getAttribute('data-newrec')); return; }
+  // record row -> editor
+  var rec=e.target.closest('[data-rec]'); if(rec){ openRecord(rec.getAttribute('data-rec')); return; }
+  // tabs
+  var tab=e.target.closest('.tab'); if(tab){ var tid=tab.getAttribute('data-tab'); navStack=[{screen: tid==='folders'?'home':tid}]; if(tid==='folders') renderHome(); if(tid==='stats') renderStats(); if(tid==='calendar') renderCalendar(); show(tid==='folders'?'home':tid); return; }
+  // calendar prev month
+  var cp=e.target.closest('[data-cal-prev]'); if(cp){ calMonth--; if(calMonth<0){ calMonth=11; calYear--; } renderCalendar(); return; }
+  // calendar next month
+  var cn=e.target.closest('[data-cal-next]'); if(cn){ calMonth++; if(calMonth>11){ calMonth=0; calYear++; } renderCalendar(); return; }
+  // calendar jump to year/month
+  var cj=e.target.closest('[data-cal-jump]'); if(cj){ openPromptModal('跳转到年月', '格式 YYYY-MM', calYear+'-'+String(calMonth+1).padStart(2,'0'), function(v){ if(v && /^\d{4}-\d{1,2}$/.test(v)){ var pp=v.split('-'); var yy=parseInt(pp[0],10), mm=parseInt(pp[1],10)-1; if(yy>=1970 && yy<=2100 && mm>=0 && mm<=11){ calYear=yy; calMonth=mm; calSelected=1; renderCalendar(); } } }); return; }
+  // calendar day
+  var day=e.target.closest('.calcell[data-day]'); if(day){ calSelected=parseInt(day.getAttribute('data-day'),10); renderCalendar(); return; }
+  // stats tag filter
+  var tag=e.target.closest('[data-tag]'); if(tag){ document.getElementById('searchInput').value=tag.getAttribute('data-tag'); renderSearch(tag.getAttribute('data-tag')); show('search'); return; }
+  // editor save
+  var sv=e.target.closest('[data-save]'); if(sv){ saveEditor(); return; }
+  // editor delete
+  var del=e.target.closest('[data-delete-rec]'); if(del){ deleteCurrentRecord(); return; }
+  // folder menu
+  var fm=e.target.closest('[data-folder-menu]'); if(fm){ openFolderMenu(); return; }
+});
+
+/* search input (live) */
+document.getElementById('searchInput').addEventListener('input', function(){ if(navStack[navStack.length-1].screen!=='search') navStack.push({screen:'search'}); renderSearch(this.value); show('search'); });
+
+/* home new root folder */
+document.getElementById('newRootFolder').addEventListener('click', function(){ openPromptModal('新建文件夹', '输入文件夹名称', '未命名文件夹', function(v){ var name=(v||'').trim(); if(name){ var nid='u'+Date.now(); DB.folders[nid]={name:name,parent:null,color:'accent'}; saveDB(); renderHome(); } }); });
+
+/* export */
+document.getElementById('exportBtn').addEventListener('click', exportData);
+
+/* ============ FOLDER OPERATIONS ============ */
+function openFolderMenu(){
+  openSheet([{label:'重命名'}, {label:'删除文件夹', danger:true}], function(idx){
+    if(idx===0){
+      openPromptModal('重命名文件夹', '新名称', DB.folders[currentFolder].name, function(v){ var name=(v||'').trim(); if(name){ DB.folders[currentFolder].name=name; saveDB(); renderFolder(currentFolder); } });
+    } else if(idx===1){
+      openConfirmModal('删除文件夹', '该文件夹及其子文件夹、记录都会被删除，确定吗？', function(ok){ if(ok){ deleteFolder(currentFolder); saveDB(); navStack=[{screen:'home'}]; renderHome(); show('home'); } });
+    }
+  });
+}
+function deleteFolder(id){
+  // recursive children
+  childrenOf(id).forEach(function(cid){ deleteFolder(cid); });
+  // records in this folder
+  recordsOf(id).forEach(function(rid){ delete DB.records[rid]; });
+  delete DB.folders[id];
+}
+
+/* ============ EDITOR ============ */
+var editing = null;
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+var CHECK_SVG = '<svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1.5 4.5L4 7L9.5 1" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+var REMINDER_SVG = '<svg width="12" height="14" viewBox="0 0 12 14" fill="none"><path d="M6 1.5C4.2 1.5 3 2.9 3 4.7V7.5L1.8 9.7V10.5H10.2V9.7L9 7.5V4.7C9 2.9 7.8 1.5 6 1.5Z" stroke="#4F6EF7" stroke-width="1.4" stroke-linejoin="round"/><path d="M5 12.2H7" stroke="#4F6EF7" stroke-width="1.4" stroke-linecap="round"/></svg>';
+
+function loadEditor(type, recId, folderId){
+  if(recId){ var r=DB.records[recId]; editing={id:recId, type:type, folderId:r.folderId, isNew:false, data:clone(r)}; }
+  else { var fid=folderId||currentFolder||'work'; editing={id:null, type:type, folderId:fid, isNew:true, data:{type:type, folderId:fid, title:'', date:TODAY, time:'09:00', reminder:null, tags:[], image:null, checklist:[], body:'', linkPlanId:null}}; }
+}
+function renderTags(tags){ return (tags||[]).map(function(t){ return '<div class="tag" data-tag-del="'+t+'">#'+escapeHtml(t)+'</div>'; }).join(''); }
+function renderChecklist(type, list, label){
+  var items=list.map(function(c,i){ return '<div class="citem" data-ci="'+i+'"><div class="cb '+(c.c?'on':'off')+'" data-cb>'+(c.c?CHECK_SVG:'')+'</div><div class="t-body" contenteditable="true" data-citext style="outline:none">'+escapeHtml(c.t)+'</div></div>'; }).join('');
+  return '<div class="checklist" id="'+type+'Checklist"><div class="t-name">'+label+'</div>'+items+'<div class="citem" data-addci style="cursor:pointer"><div class="cb off" style="visibility:hidden"></div><div class="t-body" style="color:var(--accent)">+ 添加项</div></div></div>';
+}
+function paintEditor(){
+  if(!editing) return;
+  var type=editing.type, d=editing.data;
+  document.getElementById(type+'HeadTitle').textContent=(editing.isNew?'新建':'编辑')+(type==='plan'?'计划':'复盘');
+  document.getElementById(type+'Del').style.display = editing.isNew ? 'none' : 'flex';
+  var path=pathOf(editing.folderId).join(' / ');
+  var html='<div class="etype"><div class="badge '+type+'">'+(type==='plan'?'计划':'复盘')+'</div><div class="t-path">'+path+'</div></div>';
+  html+='<div class="t-title" contenteditable="true" id="'+type+'Title" style="outline:none">'+escapeHtml(d.title||'')+'</div>';
+  if(type==='plan'){
+    html+='<button class="reminder" id="'+type+'Reminder">'+REMINDER_SVG+(d.reminder?('<span>'+d.reminder+' 提醒</span>'):'<span>设置提醒</span>')+'</button>';
+    html+='<div class="t-body" contenteditable="true" id="'+type+'Body" style="outline:none">'+escapeHtml(d.body||'')+'</div>';
+    html+=renderChecklist(type, d.checklist, '待办清单');
+    html+='<div class="imgblock" id="'+type+'Img">'+(d.image?'':'点击插入图片')+'</div>';
+    html+='<div class="divider"></div>';
+    html+='<div class="tags" id="'+type+'Tags">'+renderTags(d.tags)+'<div class="tag" style="background:var(--accent-soft);color:var(--accent)">+ 添加</div></div>';
+  } else {
+    if(d.linkPlanId && DB.records[d.linkPlanId]){
+      var lp=DB.records[d.linkPlanId];
+      html+='<div class="linked" data-link><div class="row-center gap8">'+'<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M6.5 8.2L3 4.7C2.5 4.2 2.5 3.4 3 2.9C3.5 2.4 4.3 2.4 4.8 2.9L8.3 6.4M10 9.7L7.3 7M6 13.5L8.4 12.6C8.7 12.5 8.9 12.6 9.1 12.8L11.5 14L11.1 11.3C11 11 11.1 10.7 11.3 10.5L12.9 8.7C13.1 8.4 13.1 8 12.8 7.8L11 6.8" stroke="#4F6EF7" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><div class="lt"><div class="t-meta">已关联计划</div><div class="t-rec-title" style="font-weight:500">'+escapeHtml(lp.title)+'</div></div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+      var total=lp.checklist.length, done=lp.checklist.filter(function(c){return c.c;}).length;
+      var pct=total?Math.round(done/total*100):0;
+      html+='<div class="compare"><div class="row-between"><div class="t-meta">计划完成度</div><div style="font-size:14px;font-weight:700;color:var(--orange)">'+done+' / '+total+'</div></div><div class="pbar"><i style="width:'+pct+'%"></i></div>';
+      lp.checklist.forEach(function(c){ html+='<div class="citem"><div class="cdot '+(c.c?'on':'off')+'"></div><div class="t-body" style="'+(c.c?'':'color:var(--gray)')+'">'+escapeHtml(c.t)+'</div></div>'; });
+      html+='</div>';
+    } else {
+      html+='<div class="linked" data-link-choose style="border:1px dashed var(--accent-stroke);cursor:pointer"><div class="row-center gap8"><div class="t-meta" style="color:var(--accent)">+ 关联计划（可选）</div></div></div>';
+    }
+    html+='<div class="t-body" contenteditable="true" id="'+type+'Body" style="outline:none">'+escapeHtml(d.body||'')+'</div>';
+    html+=renderChecklist(type, d.checklist, '改进项');
+    html+='<div class="tags" id="'+type+'Tags">'+renderTags(d.tags)+'<div class="tag" style="background:var(--accent-soft);color:var(--accent)">+ 添加</div></div>';
+  }
+  document.getElementById(type+'Content').innerHTML=html;
+  if(d.image){ var ib=document.getElementById(type+'Img'); if(ib){ ib.style.backgroundImage='url('+d.image+')'; ib.classList.add('has-img'); ib.textContent=''; } }
+  bindEditor(type);
+}
+function bindEditor(type){
+  var c=document.getElementById(type+'Content');
+  var titleEl=document.getElementById(type+'Title'); if(titleEl) titleEl.addEventListener('input', function(){ editing.data.title=this.textContent; });
+  var bodyEl=document.getElementById(type+'Body'); if(bodyEl) bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; });
+  var rem=document.getElementById(type+'Reminder'); if(rem) rem.addEventListener('click', function(){
+    openPromptModal('设置提醒时间', '格式 HH:MM', editing.data.reminder||'18:00', function(v){ if(v && /^\d{1,2}:\d{2}$/.test(v)){ editing.data.reminder=v; document.getElementById(type+'Reminder').querySelector('span').textContent=v+' 提醒'; toast('已设置提醒：'+v); scheduleReminder(v); } });
+  });
+  c.querySelectorAll('[data-cb]').forEach(function(cb){ cb.addEventListener('click', function(ev){ ev.stopPropagation(); var ci=parseInt(cb.getAttribute('data-ci'),10); var on=cb.classList.contains('on'); cb.classList.toggle('on',!on); cb.classList.toggle('off',on); var svg=cb.querySelector('svg'); if(!on){ if(!svg) cb.innerHTML=CHECK_SVG; } else { if(svg) svg.remove(); } editing.data.checklist[ci].c=!on; }); });
+  c.querySelectorAll('[data-citext]').forEach(function(t){ t.addEventListener('input', function(){ var ci=parseInt(t.closest('[data-ci]').getAttribute('data-ci'),10); editing.data.checklist[ci].t=this.textContent; }); });
+  var addci=c.querySelector('[data-addci]'); if(addci) addci.addEventListener('click', function(){ editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); });
+  var tagsEl=document.getElementById(type+'Tags'); if(tagsEl) tagsEl.addEventListener('click', function(e){ var tag=e.target.closest('[data-tag-del]'); if(tag){ var t=tag.getAttribute('data-tag-del'); editing.data.tags=editing.data.tags.filter(function(x){return x!==t;}); paintEditor(); return; } if(e.target.classList.contains('tag') && e.target.textContent.indexOf('+')<0) return;
+    openPromptModal('添加标签', '如：重要', '', function(v){ var t=(v||'').trim(); if(t){ editing.data.tags.push(t.replace(/^#/,'')); paintEditor(); } });
+  });
+  var imgEl=document.getElementById(type+'Img'); if(imgEl) imgEl.addEventListener('click', function(){ currentImgTarget=type+'Img'; document.getElementById('imgFile').click(); });
+  var lk=c.querySelector('[data-link-choose]'); if(lk) lk.addEventListener('click', chooseLinkPlan);
+}
+function chooseLinkPlan(){
+  var plans=Object.keys(DB.records).filter(function(k){ return DB.records[k].type==='plan'; });
+  if(!plans.length){ toast('暂无可选计划'); return; }
+  var items=plans.map(function(k){ return {label:DB.records[k].title}; });
+  openSheet(items, function(idx){ if(plans[idx]){ editing.data.linkPlanId=plans[idx]; paintEditor(); } });
+}
+function saveEditor(){
+  if(!editing) return;
+  var d=editing.data;
+  var tEl=document.getElementById(editing.type+'Title'); if(tEl) d.title=tEl.textContent.trim();
+  var bEl=document.getElementById(editing.type+'Body'); if(bEl) d.body=bEl.textContent;
+  if(!d.title) d.title=(editing.type==='plan'?'未命名计划':'未命名复盘');
+  var isNew=editing.isNew;
+  if(isNew){ var nid='r'+Date.now(); d.folderId=editing.folderId; DB.records[nid]=clone(d); editing.id=nid; editing.isNew=false; }
+  else { DB.records[editing.id]=clone(d); }
+  saveDB();
+  toast(isNew?'已新建并保存':'已保存');
+  renderFolder(editing.folderId);
+  navStack[navStack.length-1]={screen:'folder', id:editing.folderId};
+  show('folder');
+}
+function deleteCurrentRecord(){
+  if(!editing || editing.isNew) return;
+  openConfirmModal('删除记录', '确定删除“'+(editing.data.title||'未命名')+'”吗？此操作不可恢复。', function(ok){ if(ok){ delete DB.records[editing.id]; saveDB(); toast('已删除'); var fid=editing.folderId; navStack=[{screen:'folder', id:fid}]; renderFolder(fid); show('folder'); } });
+}
+function scheduleReminder(time){
+  var parts=time.split(':'); var h=parseInt(parts[0],10), m=parseInt(parts[1],10);
+  var now=new Date(); var target=new Date(); target.setHours(h,m,0,0);
+  var diff=target-now; if(diff<=0) diff+=24*3600*1000;
+  setTimeout(function(){ toast('⏰ 提醒：'+(editing&&editing.data.title||'计划')); }, diff);
+}
+var currentImgTarget=null;
+document.getElementById('imgFile').addEventListener('change', function(){
+  var file=this.files&&this.files[0]; if(!file) return;
+  var rd=new FileReader(); rd.onload=function(ev){ if(editing){ editing.data.image=ev.target.result; } var el=document.getElementById(currentImgTarget||''); if(el){ el.style.backgroundImage='url('+ev.target.result+')'; el.classList.add('has-img'); el.textContent=''; } };
+  rd.readAsDataURL(file); this.value='';
+});
+// editor toolbar
+var toolbarBtnMap=[null,'checklist','image',null,'link'];
+document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
+  btn.addEventListener('click', function(){
+    if(!editing) return;
+    var act=toolbarBtnMap[i];
+    if(act==='checklist'){ editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); }
+    else if(act==='image'){ currentImgTarget=editing.type+'Img'; document.getElementById('imgFile').click(); }
+    else if(act==='link' && editing.type==='review'){ chooseLinkPlan(); }
+  });
+});
+
+/* ============ INIT ============ */
+renderHome(); renderCalendar(); renderStats();
+</script>
+</body>
+</html>
