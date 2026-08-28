@@ -56,3 +56,9 @@ export function getDailyQuote(dateStr) {
   return { ...QUOTES[idx], index: idx };
 }
 
+/** 删除清单数组中指定下标的项（返回新数组） */
+export function deleteChecklistItem(items, index) {
+  return items.filter((_, i) => i !== index);
+}
+
+

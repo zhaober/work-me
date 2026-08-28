@@ -87,6 +87,8 @@
   .reminder span{font-size:12px;font-weight:500;color:var(--accent);}
   .checklist{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;}
   .citem{display:flex;align-items:center;gap:10px;}
+.cdel{width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:var(--danger);font-size:18px;font-weight:600;cursor:pointer;margin-left:auto;border-radius:6px;}
+.cdel:active{background:rgba(229,57,53,.1);}
   .cb{width:18px;height:18px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .cb.on{background:var(--accent);} .cb.off{background:transparent;border:1.5px solid var(--check-off);}
   .imgblock{width:100%;height:140px;border-radius:12px;background:#E9EBF2;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:12px;cursor:pointer;background-size:cover;background-position:center;overflow:hidden;position:relative;}
@@ -314,7 +316,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem } from './src/app-core.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
@@ -650,7 +652,7 @@ function loadEditor(type, recId, folderId){
 }
 function renderTags(tags){ return (tags||[]).map(function(t){ return '<div class="tag" data-tag-del="'+t+'">#'+escapeHtml(t)+'</div>'; }).join(''); }
 function renderChecklist(type, list, label){
-  var items=list.map(function(c,i){ return '<div class="citem" data-ci="'+i+'"><div class="cb '+(c.c?'on':'off')+'" data-cb>'+(c.c?CHECK_SVG:'')+'</div><div class="t-body" contenteditable="true" data-citext style="outline:none">'+escapeHtml(c.t)+'</div></div>'; }).join('');
+  var items=list.map(function(c,i){ return '<div class="citem" data-ci="'+i+'"><div class="cb '+(c.c?'on':'off')+'" data-cb>'+(c.c?CHECK_SVG:'')+'</div><div class="t-body" contenteditable="true" data-citext style="outline:none;flex:1">'+escapeHtml(c.t)+'</div><div class="cdel" data-cdel="'+i+'">×</div></div>'; }).join('');
   return '<div class="checklist" id="'+type+'Checklist"><div class="t-name">'+label+'</div>'+items+'<div class="citem" data-addci style="cursor:pointer"><div class="cb off" style="visibility:hidden"></div><div class="t-body" style="color:var(--accent)">+ 添加项</div></div></div>';
 }
 function paintEditor(){
@@ -702,6 +704,7 @@ function bindEditor(type){
   });
   c.querySelectorAll('[data-cb]').forEach(function(cb){ cb.addEventListener('click', function(ev){ ev.stopPropagation(); var ci=parseInt(cb.getAttribute('data-ci'),10); var on=cb.classList.contains('on'); cb.classList.toggle('on',!on); cb.classList.toggle('off',on); var svg=cb.querySelector('svg'); if(!on){ if(!svg) cb.innerHTML=CHECK_SVG; } else { if(svg) svg.remove(); } editing.data.checklist[ci].c=!on; }); });
   c.querySelectorAll('[data-citext]').forEach(function(t){ t.addEventListener('input', function(){ var ci=parseInt(t.closest('[data-ci]').getAttribute('data-ci'),10); editing.data.checklist[ci].t=this.textContent; }); });
+  c.querySelectorAll('[data-cdel]').forEach(function(btn){ btn.addEventListener('click', function(ev){ ev.stopPropagation(); var ci=parseInt(btn.getAttribute('data-cdel'),10); editing.data.checklist=deleteChecklistItem(editing.data.checklist, ci); paintEditor(); }); });
   var addci=c.querySelector('[data-addci]'); if(addci) addci.addEventListener('click', function(){ editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); });
   var tagsEl=document.getElementById(type+'Tags'); if(tagsEl) tagsEl.addEventListener('click', function(e){ var tag=e.target.closest('[data-tag-del]'); if(tag){ var t=tag.getAttribute('data-tag-del'); editing.data.tags=editing.data.tags.filter(function(x){return x!==t;}); paintEditor(); return; } if(e.target.classList.contains('tag') && e.target.textContent.indexOf('+')<0) return;
     openPromptModal('添加标签', '如：重要', '', function(v){ var t=(v||'').trim(); if(t){ editing.data.tags.push(t.replace(/^#/,'')); paintEditor(); } });
