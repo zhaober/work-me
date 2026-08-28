@@ -453,7 +453,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
@@ -483,7 +483,8 @@ var DB = {
     r8:{type:'review', folderId:'study',    title:'复盘：英语口语练习',   date:'2026-08-24', time:'22:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
     r9:{type:'plan',   folderId:'study',    title:'整理 LeetCode 错题集', date:'2026-08-22', time:'21:00', reminder:null, tags:[], image:null, checklist:[], body:''}
   },
-  events: []
+  events: [],
+  settings: getDefaultSettings()
 };
 function childrenOf(id){ var r=[]; for(var k in DB.folders){ if(DB.folders[k].parent===id) r.push(k); } return r; }
 function recordsOf(id){ var r=[]; for(var k in DB.records){ if(DB.records[k].folderId===id) r.push(k); } return r; }
@@ -499,11 +500,12 @@ var LS_KEY = 'work-memo-db-v' + DB_VERSION;
     var raw = localStorage.getItem(LS_KEY);
     if(raw){
       var parsed = JSON.parse(raw);
-      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; if(parsed.events) DB.events = parsed.events; if(parsed.settings) DB.settings = parsed.settings; }
+      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; if(parsed.events) DB.events = parsed.events; }
       // 数据迁移：旧记录补齐 priority / events
       Object.keys(DB.records).forEach(function(k){ if(typeof DB.records[k].priority !== 'number') DB.records[k].priority = 0; });
       if(!DB.events) DB.events = [];
-      if(!DB.settings) DB.settings = { theme:'light', soundOn:true, style:'classic', bgImage:null };
+      // 设置合并默认值：缺失/非法字段回落默认，旧数据无 settings 也能正常进入「我的」
+      DB.settings = normalizeSettings(parsed ? parsed.settings : null);
     }
   } catch(e){}
 })();

@@ -253,3 +253,18 @@ export function normalizeStyle(s){ return STYLE_LIST.indexOf(s) >= 0 ? s : 'clas
 export function getStyleLabel(s){ return STYLE_LABELS[normalizeStyle(s)] || '经典'; }
 /** 返回某风格的视觉元数据（用于测试与运行时参考） */
 export function getStyleTokens(style){ return STYLE_TOKENS[normalizeStyle(style)]; }
+
+/* ============ 用户设置（个性化）默认与规范化 ============ */
+/** 设置默认值：浅色主题、开启音效、经典风格、无背景 */
+export function getDefaultSettings(){ return { theme:'light', soundOn:true, style:'classic', bgImage:null }; }
+/** 规范化用户设置：缺失/非法字段回落默认值，不影响已合法字段；输入非对象时返回默认 */
+export function normalizeSettings(input){
+  const d = getDefaultSettings();
+  if(!input || typeof input !== 'object') return d;
+  return {
+    theme:   normalizeTheme(input.theme) || 'light',
+    soundOn: input.soundOn !== false,
+    style:   normalizeStyle(input.style),
+    bgImage: input.bgImage ? input.bgImage : null,
+  };
+}
