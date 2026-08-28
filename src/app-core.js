@@ -61,4 +61,59 @@ export function deleteChecklistItem(items, index) {
   return items.filter((_, i) => i !== index);
 }
 
+/** 构建某文件夹下的可选内容列表（子文件夹 + 记录） */
+export function buildFolderContents(folderId, folders, records) {
+  const subs = Object.keys(folders)
+    .filter(k => folders[k].parent === folderId)
+    .map(k => ({ id: k, type: 'folder', name: folders[k].name }));
+  const recs = Object.keys(records)
+    .filter(k => records[k].folderId === folderId)
+    .map(k => ({ id: k, type: 'record', title: records[k].title }));
+  return [...subs, ...recs];
+}
+
+/** 递归收集某文件夹及其所有后代文件夹的 id */
+export function collectDescendantFolderIds(folderId, folders) {
+  const ids = new Set();
+  function walk(id) {
+    ids.add(id);
+    Object.keys(folders).filter(k => folders[k].parent === id).forEach(k => walk(k));
+  }
+  walk(folderId);
+  return [...ids];
+}
+
+/** 根据选中的 id 集合返回新的 folders 与 records（被选中文件夹会递归删除） */
+export function deleteSelectedItems(selectedIds, folders, records) {
+  const nextFolders = { ...folders };
+  const nextRecords = { ...records };
+  const set = new Set(selectedIds);
+  set.forEach(id => {
+    if (nextFolders[id]) {
+      collectDescendantFolderIds(id, nextFolders).forEach(did => {
+        delete nextFolders[did];
+        Object.keys(nextRecords).filter(k => nextRecords[k].folderId === did).forEach(k => delete nextRecords[k]);
+      });
+    } else if (nextRecords[id]) {
+      delete nextRecords[id];
+    }
+  });
+  return { folders: nextFolders, records: nextRecords };
+}
+
+/** 清空文件夹内容：删除其下所有子文件夹（递归）与记录，保留文件夹本身 */
+export function clearFolderContents(folderId, folders, records) {
+  const nextFolders = { ...folders };
+  const nextRecords = { ...records };
+  Object.keys(nextFolders).filter(k => nextFolders[k].parent === folderId).forEach(k => {
+    collectDescendantFolderIds(k, nextFolders).forEach(did => {
+      delete nextFolders[did];
+      Object.keys(nextRecords).filter(rk => nextRecords[rk].folderId === did).forEach(rk => delete nextRecords[rk]);
+    });
+  });
+  Object.keys(nextRecords).filter(k => nextRecords[k].folderId === folderId).forEach(k => delete nextRecords[k]);
+  return { folders: nextFolders, records: nextRecords };
+}
+
+
 
