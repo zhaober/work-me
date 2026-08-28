@@ -150,7 +150,7 @@
   .modal-overlay.show{display:flex;}
   .modal-card{background:var(--card);border-radius:18px;padding:20px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px;box-shadow:0 16px 48px rgba(0,0,0,.2);}
   .modal-card .mtitle{font-size:17px;font-weight:700;color:var(--text);}
-  .modal-card .mmsg{font-size:14px;color:var(--text-2);line-height:1.5;}
+  .modal-card .mmsg{font-size:14px;color:var(--text-2);line-height:1.5;white-space:pre-line;}
   .modal-card input{border:none;border-bottom:1px solid var(--border);padding:10px 0;font-size:15px;outline:none;color:var(--text);font-family:inherit;background:transparent;width:100%;}
   .modal-card input:focus{border-color:var(--accent);}
   .modal-actions{display:flex;justify-content:flex-end;gap:14px;margin-top:4px;}
@@ -176,7 +176,7 @@
     <div class="content g18">
       <div class="row-between">
         <div>
-          <div class="t-greet" id="homeGreet">早上好，今天也要高效</div>
+          <div class="t-greet" id="homeGreet" data-show-quote>早上好，今天也要高效</div>
           <div class="t-date" id="homeDate">周四 · 8月27日</div>
         </div>
         <button class="export-btn" id="exportBtn">导出</button>
@@ -314,7 +314,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote } from './src/app-core.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
@@ -430,7 +430,8 @@ function renderHome(){
   document.getElementById('overview').innerHTML =
     '<div class="ov-card"><div class="t-label">今日计划</div><div class="ov-num-row"><div class="ov-big-plan">'+plans+'</div><div class="t-sub">项 · 今日待办</div></div></div>'
    +'<div class="ov-card"><div class="t-label">今日复盘</div><div class="ov-num-row"><div class="ov-big-review">'+reviews+'</div><div class="t-sub">篇 · 记录收获</div></div></div>';
-  document.getElementById('homeGreet').textContent = '早上好，今天也要高效';
+  var greet = getGreetingByHour(new Date().getHours());
+  document.getElementById('homeGreet').textContent = greet.text;
   document.getElementById('homeDate').textContent = formatDateHeader(TODAY);
 }
 function folderSVG(stroke){ return '<svg width="18" height="16" viewBox="0 0 18 16" fill="none"><path d="M2 3.5C2 2.7 2.7 2 3.5 2H7L9 4.2H14.5C15.3 4.2 16 4.9 16 5.7V12.5C16 13.3 15.3 14 14.5 14H3.5C2.7 14 2 13.3 2 12.5V3.5Z" stroke="'+stroke+'" stroke-width="1.5" stroke-linejoin="round"/></svg>'; }
@@ -552,12 +553,25 @@ function exportData(){
   toast('已导出 JSON 文件');
 }
 
-/* ============ TOAST ============ */
+/* ============ TOAST & QUOTE ============ */
 var toastTimer=null;
 function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); },2200); }
+function showDailyQuote(){
+  var q=getDailyQuote(TODAY);
+  var msg='“'+q.text+'”'+(q.en && q.en!==q.text ? '\n\n'+q.en : '')+'\n\n—— '+q.author;
+  openConfirmModal('今日名言', msg, function(){});
+}
+function maybeAutoShowQuote(){
+  try {
+    var last=localStorage.getItem('work-memo-quote-last');
+    if(last!==TODAY){ localStorage.setItem('work-memo-quote-last', TODAY); showDailyQuote(); }
+  } catch(e){}
+}
 
 /* ============ EVENT DELEGATION ============ */
 document.getElementById('app').addEventListener('click', function(e){
+  // show daily quote
+  var sq=e.target.closest('[data-show-quote]'); if(sq){ showDailyQuote(); return; }
   // back
   var back=e.target.closest('[data-back]'); if(back){ if(navStack.length>1) navStack.pop(); var prev=navStack[navStack.length-1]; if(prev.screen==='folder'){ renderFolder(prev.id); } else if(prev.screen==='plan'||prev.screen==='review'){ loadEditor(prev.type, prev.recId, prev.folderId); paintEditor(); } else if(prev.screen==='home'){ renderHome(); } else if(prev.screen==='search'){ renderSearch(document.getElementById('searchInput').value); } else if(prev.screen==='calendar'){ renderCalendar(); } else if(prev.screen==='stats'){ renderStats(); } show(prev.screen); return; }
   // home folder row
@@ -746,6 +760,7 @@ document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
 
 /* ============ INIT ============ */
 renderHome(); renderCalendar(); renderStats();
+maybeAutoShowQuote();
 </script>
 </body>
 </html>
