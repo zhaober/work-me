@@ -21,7 +21,7 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
   body{font-family:"Inter","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,sans-serif;background:#E9EBF2;display:flex;justify-content:center;}
-  .app{width:100%;max-width:480px;height:100%;background:var(--bg);position:relative;overflow:hidden;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
+  .app{width:100%;max-width:480px;height:100%;background-color:var(--bg);background-image:var(--app-bg-image, none);background-size:cover;background-position:center;position:relative;overflow:hidden;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
   .screen{position:absolute;top:0;left:0;right:0;bottom:95px;overflow-y:auto;display:none;padding-top:env(safe-area-inset-top);}
   .screen.active{display:block;}
   .screen.editor{bottom:64px;}
@@ -238,6 +238,17 @@
   .switch.on{background:var(--accent);}
   .switch .knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
   .switch.on .knob{left:23px;}
+
+  /* style chips */
+  .me-section{padding:10px 2px 2px;}
+  .style-chips{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 6px;}
+  .style-chip{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--border);background:var(--card);color:var(--text-2);cursor:pointer;}
+  .style-chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .me-action{font-size:13px;font-weight:600;color:var(--accent);flex-shrink:0;}
+  /* UI 风格：液态玻璃 / 极简 / 景深 */
+  #app[data-style="glass"] .card,#app[data-style="glass"] .search,#app[data-style="glass"] .frow,#app[data-style="glass"] .scard,#app[data-style="glass"] .rec,#app[data-style="glass"] .me-card,#app[data-style="glass"] .calcard,#app[data-style="glass"] .checklist,#app[data-style="glass"] .linked,#app[data-style="glass"] .result-row,#app[data-style="glass"] .ov-card,#app[data-style="glass"] .priority-seg,#app[data-style="glass"] .modal-card{ background: color-mix(in srgb, var(--card) 66%, transparent); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); border-color: color-mix(in srgb, var(--text) 12%, transparent); }
+  #app[data-style="minimal"] .card,#app[data-style="minimal"] .search,#app[data-style="minimal"] .frow,#app[data-style="minimal"] .scard,#app[data-style="minimal"] .rec,#app[data-style="minimal"] .me-card,#app[data-style="minimal"] .calcard,#app[data-style="minimal"] .checklist,#app[data-style="minimal"] .linked,#app[data-style="minimal"] .result-row,#app[data-style="minimal"] .ov-card{ border-color: transparent; box-shadow: none; }
+  #app[data-style="depth"] .card,#app[data-style="depth"] .scard,#app[data-style="depth"] .rec,#app[data-style="depth"] .me-card,#app[data-style="depth"] .calcard,#app[data-style="depth"] .ov-card,#app[data-style="depth"] .result-row{ box-shadow: 0 10px 28px rgba(0,0,0,.14); border-color: transparent; }
 </style>
 </head>
 <body>
@@ -412,6 +423,7 @@
   </div>
 
   <input type="file" id="imgFile" accept="image/*" style="display:none" />
+  <input type="file" id="bgFile" accept="image/*" style="display:none" />
   <div class="toast" id="toast"></div>
 
   <!-- IMAGE LIGHTBOX -->
@@ -441,7 +453,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
@@ -565,6 +577,23 @@ function applyTheme(theme){
 function loadSettings(){
   var s = DB.settings || { theme:'light', soundOn:true, style:'classic', bgImage:null };
   applyTheme(s.theme);
+  applyStyle(s.style);
+  applyBackground(s.bgImage);
+}
+function applyStyle(style){
+  var st = normalizeStyle(style);
+  var app = document.getElementById('app');
+  if(app) app.setAttribute('data-style', st);
+}
+function applyBackground(img){
+  if(img){ document.documentElement.style.setProperty('--app-bg-image', 'url("' + img + '")'); }
+  else { document.documentElement.style.removeProperty('--app-bg-image'); }
+}
+function onStylePick(style){
+  var s = DB.settings; s.style = normalizeStyle(style); applyStyle(s.style); saveDB(); renderMe(); playSound('toggle');
+}
+function onBgClear(){
+  var s = DB.settings; s.bgImage = null; applyBackground(null); saveDB(); renderMe(); playSound('delete');
 }
 function renderMe(){
   var s = DB.settings;
@@ -580,6 +609,10 @@ function renderMe(){
       '</div>'+
       '<div class="me-row" data-go-events><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><rect x="2.5" y="3.5" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1.5V4M11 1.5V4M2.5 6.5H13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="me-info"><div class="t-name">重要日子</div><div class="t-meta">'+DB.events.length+' 个已添加</div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
       '<div class="me-row" data-export><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><path d="M8 2V10M4.5 6.5L8 10L11.5 6.5M2.5 13.5H13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">导出数据</div><div class="t-meta">备份到本地文件</div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
+    '</div>'+
+    '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">界面风格</div><div class="style-chips">' + STYLE_LIST.map(function(st){ return '<div class="style-chip '+(st===s.style?'active':'')+'" data-style-opt="'+st+'">'+(getStyleLabel(st))+'</div>'; }).join('') + '</div></div>'+
+    '<div class="me-card">'+
+      '<div class="me-row" data-bg-upload><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="7" r="1.4" fill="currentColor"/><path d="M3 12L6.5 8.5L9 11L11 9L14 12" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">自定义背景</div><div class="t-meta">'+(s.bgImage?'已设置 · 点击更换':'未设置 · 点击上传')+'</div></div>'+(s.bgImage?'<span class="me-action" data-bg-clear style="color:var(--danger)">清除</span>':'<span class="me-action">选择</span>')+'</div>'+
     '</div>'+
     '<div class="t-meta me-foot">工作计划与复盘 · 本地优先 · 数据不上云</div>';
 }
@@ -846,6 +879,12 @@ document.getElementById('app').addEventListener('click', function(e){
   var ge=e.target.closest('[data-go-events]'); if(ge){ renderCalendar(); show('calendar'); return; }
   // me: export data
   var ex=e.target.closest('[data-export]'); if(ex){ exportData(); return; }
+  // me: style option
+  var sopt=e.target.closest('[data-style-opt]'); if(sopt){ onStylePick(sopt.getAttribute('data-style-opt')); return; }
+  // me: background upload
+  var bu=e.target.closest('[data-bg-upload]'); if(bu){ document.getElementById('bgFile').click(); return; }
+  // me: clear background
+  var bc=e.target.closest('[data-bg-clear]'); if(bc){ onBgClear(); return; }
   // selection bar: cancel
   var sc=e.target.closest('#selCancel'); if(sc){ exitSelectionMode(); return; }
   // selection bar: delete
@@ -1060,6 +1099,11 @@ var currentImgTarget=null;
 document.getElementById('imgFile').addEventListener('change', function(){
   var file=this.files&&this.files[0]; if(!file) return;
   var rd=new FileReader(); rd.onload=function(ev){ if(editing){ editing.data.image=ev.target.result; } var el=document.getElementById(currentImgTarget||''); if(el){ el.style.backgroundImage='url('+ev.target.result+')'; el.classList.add('has-img'); el.textContent=''; } };
+  rd.readAsDataURL(file); this.value='';
+});
+document.getElementById('bgFile').addEventListener('change', function(){
+  var file=this.files&&this.files[0]; if(!file) return;
+  var rd=new FileReader(); rd.onload=function(ev){ var s=DB.settings; s.bgImage=ev.target.result; applyBackground(s.bgImage); saveDB(); renderMe(); playSound('success'); };
   rd.readAsDataURL(file); this.value='';
 });
 /* lightbox for previewing uploaded images */

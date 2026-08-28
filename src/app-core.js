@@ -238,3 +238,18 @@ export const THEME_TOKENS = {
 export function normalizeTheme(t){ return t === 'dark' ? 'dark' : 'light'; }
 /** 返回某主题的 CSS 变量对象（用于测试与运行时注入） */
 export function getThemeVars(theme){ return THEME_TOKENS[normalizeTheme(theme)]; }
+
+/* ============ UI 风格 TOKENS ============ */
+export const STYLE_LIST = ['classic', 'glass', 'minimal', 'depth'];
+export const STYLE_LABELS = { classic:'经典', glass:'液态玻璃', minimal:'极简', depth:'景深' };
+export const STYLE_TOKENS = {
+  classic: { label:'经典',    surface:'solid', blur:0,  elevation:'none'  },
+  glass:   { label:'液态玻璃', surface:'glass', blur:18, elevation:'soft'  },
+  minimal: { label:'极简',    surface:'flat', blur:0,  elevation:'none'  },
+  depth:   { label:'景深',    surface:'solid', blur:0,  elevation:'strong'},
+};
+/** 规范化风格名，仅 STYLE_LIST 内合法，其余回退 'classic' */
+export function normalizeStyle(s){ return STYLE_LIST.indexOf(s) >= 0 ? s : 'classic'; }
+export function getStyleLabel(s){ return STYLE_LABELS[normalizeStyle(s)] || '经典'; }
+/** 返回某风格的视觉元数据（用于测试与运行时参考） */
+export function getStyleTokens(style){ return STYLE_TOKENS[normalizeStyle(style)]; }
