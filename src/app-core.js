@@ -61,6 +61,11 @@ export function deleteChecklistItem(items, index) {
   return items.filter((_, i) => i !== index);
 }
 
+/** 判断一条记录是否含有可预览的图片（data URL 字符串） */
+export function hasImage(data) {
+  return !!(data && typeof data.image === 'string' && data.image.length > 0);
+}
+
 /** 构建某文件夹下的可选内容列表（子文件夹 + 记录） */
 export function buildFolderContents(folderId, folders, records) {
   const subs = Object.keys(folders)

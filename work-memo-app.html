@@ -169,6 +169,18 @@
   .sheet-item:active{background:var(--bg);}
   .sheet-cancel{margin-top:8px;font-weight:600;color:var(--text-2);background:var(--bg);}
 
+  /* image lightbox */
+  .imgblock.has-img::after{content:'点击查看大图';position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:500;color:#fff;background:rgba(0,0,0,.5);padding:3px 10px;border-radius:10px;pointer-events:none;}
+  .lightbox-overlay{position:absolute;inset:0;background:rgba(0,0,0,.92);z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+  .lightbox-overlay.show{display:flex;}
+  .lightbox-overlay img{max-width:100%;max-height:72%;border-radius:12px;object-fit:contain;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .lightbox-hint{position:absolute;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;text-align:center;color:#fff;font-size:13px;opacity:.8;}
+  .lightbox-bar{margin-top:18px;display:flex;gap:12px;}
+  .lightbox-bar button{border:none;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;color:#fff;}
+  .lightbox-bar .lb-close{background:rgba(255,255,255,.22);}
+  .lightbox-bar .lb-replace{background:var(--accent);}
+  .lightbox-bar .lb-del{background:var(--danger);}
+
   /* selection mode */
   .selbox{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--check-off);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
   .selbox.on{border-color:var(--accent);background:var(--accent);color:#fff;}
@@ -331,11 +343,22 @@
 
   <input type="file" id="imgFile" accept="image/*" style="display:none" />
   <div class="toast" id="toast"></div>
+
+  <!-- IMAGE LIGHTBOX -->
+  <div class="lightbox-overlay" id="lightbox">
+    <div class="lightbox-hint">点击空白处关闭</div>
+    <img id="lightboxImg" alt="图片预览" />
+    <div class="lightbox-bar">
+      <button class="lb-replace" id="lbReplace">替换图片</button>
+      <button class="lb-del" id="lbDel">删除图片</button>
+      <button class="lb-close" id="lbClose">关闭</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, buildFolderContents, deleteSelectedItems, clearFolderContents } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents } from './src/app-core.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
@@ -769,7 +792,7 @@ function bindEditor(type){
   var tagsEl=document.getElementById(type+'Tags'); if(tagsEl) tagsEl.addEventListener('click', function(e){ var tag=e.target.closest('[data-tag-del]'); if(tag){ var t=tag.getAttribute('data-tag-del'); editing.data.tags=editing.data.tags.filter(function(x){return x!==t;}); paintEditor(); return; } if(e.target.classList.contains('tag') && e.target.textContent.indexOf('+')<0) return;
     openPromptModal('添加标签', '如：重要', '', function(v){ var t=(v||'').trim(); if(t){ editing.data.tags.push(t.replace(/^#/,'')); paintEditor(); } });
   });
-  var imgEl=document.getElementById(type+'Img'); if(imgEl) imgEl.addEventListener('click', function(){ currentImgTarget=type+'Img'; document.getElementById('imgFile').click(); });
+  var imgEl=document.getElementById(type+'Img'); if(imgEl) imgEl.addEventListener('click', function(){ if(hasImage(editing.data)){ lightboxType=type; openLightbox(editing.data.image); } else { currentImgTarget=type+'Img'; document.getElementById('imgFile').click(); } });
   var lk=c.querySelector('[data-link-choose]'); if(lk) lk.addEventListener('click', chooseLinkPlan);
 }
 function chooseLinkPlan(){
@@ -809,6 +832,14 @@ document.getElementById('imgFile').addEventListener('change', function(){
   var rd=new FileReader(); rd.onload=function(ev){ if(editing){ editing.data.image=ev.target.result; } var el=document.getElementById(currentImgTarget||''); if(el){ el.style.backgroundImage='url('+ev.target.result+')'; el.classList.add('has-img'); el.textContent=''; } };
   rd.readAsDataURL(file); this.value='';
 });
+/* lightbox for previewing uploaded images */
+var lightboxType=null;
+function openLightbox(src){ var lb=document.getElementById('lightbox'); document.getElementById('lightboxImg').src=src; lb.classList.add('show'); }
+function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; }
+document.getElementById('lbClose').addEventListener('click', closeLightbox);
+document.getElementById('lightbox').addEventListener('click', function(e){ if(e.target===this || e.target.classList.contains('lightbox-hint')) closeLightbox(); });
+document.getElementById('lbReplace').addEventListener('click', function(){ if(lightboxType){ currentImgTarget=lightboxType+'Img'; document.getElementById('imgFile').click(); } closeLightbox(); });
+document.getElementById('lbDel').addEventListener('click', function(){ if(lightboxType && editing){ editing.data.image=null; var el=document.getElementById(lightboxType+'Img'); if(el){ el.style.backgroundImage=''; el.classList.remove('has-img'); el.textContent='点击插入图片'; } } closeLightbox(); });
 // editor toolbar
 var toolbarBtnMap=[null,'checklist','image',null,'link'];
 document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
