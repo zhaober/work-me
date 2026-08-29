@@ -453,7 +453,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
@@ -646,7 +646,15 @@ function openConfirmModal(title, msg, cb){
   modalInput.style.display='none'; modalInput.value='';
   modalOverlay.classList.add('show'); modalCb=cb;
 }
-function closeModal(){ modalOverlay.classList.remove('show'); modalCb=null; }
+/* 通知型弹窗：仅「确定」，用于告知操作结果（如导出文件保存位置） */
+function openNoticeModal(title, msg){
+  playSound('pop');
+  modalMode='confirm'; modalTitle.textContent=title; modalMsg.textContent=msg; modalMsg.style.display='block';
+  modalInput.style.display='none'; modalInput.value='';
+  document.getElementById('modalCancel').style.display='none';
+  modalOverlay.classList.add('show'); modalCb=null;
+}
+function closeModal(){ modalOverlay.classList.remove('show'); modalCb=null; document.getElementById('modalCancel').style.display=''; }
 document.getElementById('modalCancel').addEventListener('click', closeModal);
 document.getElementById('modalOk').addEventListener('click', function(){ if(modalCb){ if(modalMode==='prompt') modalCb(modalInput.value); else modalCb(true); } closeModal(); });
 modalInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){ document.getElementById('modalOk').click(); } });
@@ -839,11 +847,15 @@ function renderStats(){
 /* ============ EXPORT ============ */
 function exportData(){
   var payload = { exportedAt:new Date().toISOString(), folders:DB.folders, records:DB.records, events:DB.events };
+  var fileName = buildExportFilename('工作计划与复盘-导出', getTodayStr(), 'json');
   var blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   var url = URL.createObjectURL(blob);
-  var a=document.createElement('a'); a.href=url; a.download='工作计划与复盘-导出.json'; a.click();
+  var a=document.createElement('a'); a.href=url; a.download=fileName; a.click();
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  toast('已导出 JSON 文件'); playSound('success');
+  // 明确告知文件保存位置（未指定自定义目录时为系统下载目录）
+  var info = describeExportLocation(fileName, null);
+  openNoticeModal('导出成功', info.message);
+  toast('已导出：' + fileName); playSound('success');
 }
 
 /* ============ TOAST & QUOTE ============ */

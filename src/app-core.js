@@ -268,3 +268,49 @@ export function normalizeSettings(input){
     bgImage: input.bgImage ? input.bgImage : null,
   };
 }
+
+/* ============ 导出文件 ============ */
+/** 清理文件名中的非法字符（Windows / Android 通用保留字符），并压缩多余空白 */
+export function sanitizeFileName(name){
+  return String(name == null ? '' : name)
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * 构建导出文件名：<base>-<YYYY-MM-DD>.<ext>
+ * base / ext 会做非法字符清理；dateStr 非 YYYY-MM-DD 时省略日期段；base 为空回退「导出」
+ */
+export function buildExportFilename(base, dateStr, ext){
+  var b = sanitizeFileName(base) || '导出';
+  var d = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : '';
+  var e = sanitizeFileName(ext || 'json').replace(/^\.+/, '') || 'json';
+  return d ? (b + '-' + d + '.' + e) : (b + '.' + e);
+}
+
+/** 未指定自定义目录时，各平台默认落地位置文案 */
+export const DEFAULT_DOWNLOAD_HINT = '系统「下载」目录';
+
+/**
+ * 描述导出文件的落地位置，用于明确告知用户文件存到了哪里。
+ * @param {string} fileName 导出文件名
+ * @param {string|null} customDir 用户自定义目录（绝对/相对路径均可）；为 null 表示使用系统默认下载目录
+ * @returns {{hasCustomDir:boolean, path:string|null, message:string}}
+ */
+export function describeExportLocation(fileName, customDir){
+  var name = fileName || '导出文件';
+  if(customDir){
+    var dir = String(customDir).replace(/[\\/]+$/, '');
+    return {
+      hasCustomDir: true,
+      path: dir + '/' + name,
+      message: '文件已保存到：\n' + dir + '/' + name
+    };
+  }
+  return {
+    hasCustomDir: false,
+    path: null,
+    message: '文件已保存到' + DEFAULT_DOWNLOAD_HINT + '\n文件名：' + name + '\n\n· 手机：文件管理 → 下载\n· 电脑：浏览器默认下载文件夹'
+  };
+}
