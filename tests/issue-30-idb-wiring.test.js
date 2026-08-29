@@ -34,9 +34,11 @@ test('源码：启动时先等 IndexedDB 载入再渲染，且失败不白屏', 
   assert.match(init, /\.catch\(/, '存储层异常要有兜底，不能白屏');
 });
 
-test('源码：saveDB 分流到 IndexedDB，localStorage 仅作降级路径', () => {
-  assert.match(html, /function saveDB\(\)\{?\s*\n?\s*if\(STORAGE_MODE === 'idb'\) persistToIdb\(\);\s*\n?\s*else saveDBLegacy\(\);/,
-    'saveDB 需按模式分流');
+test('源码：saveDB 排队写盘，分流到 IndexedDB；localStorage 仅作降级路径', () => {
+  // Issue-31 起 saveDB 只负责排队（防抖 3s），真正的模式分流在 flushPersist
+  assert.match(html, /function saveDB\(\)\{[\s\S]{0,200}?setTimeout\(/, 'saveDB 改为防抖排队');
+  assert.match(html, /if\(STORAGE_MODE === 'idb'\) persistToIdb\(\);\s*\n?\s*else saveDBLegacy\(\);/,
+    'flushPersist 按模式分流');
   // 业务数据写 localStorage 只允许出现一次（降级函数），且必须受 STORAGE_MODE 保护
   const lsWrites = html.match(/localStorage\.setItem\(LS_KEY/g) || [];
   assert.equal(lsWrites.length, 1, '业务数据写 localStorage 只允许降级路径一处');

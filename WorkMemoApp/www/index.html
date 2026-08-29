@@ -657,21 +657,21 @@ async function idbHasData(){
  * 注意：读不到任何数据时不报错，保留内置示例数据，App 仍可用。
  */
 async function bootstrapStore(){
+  armFlushHooks();
   if(idbSupported()){
     try{
       await noteDB.open();
+      // 先迁移（迁移后 idbHasData 才为真），再统一从 IndexedDB 载入
+      var migrated = await migrateLegacyData();
       if(await idbHasData()){
         await loadFromIdb();
         STORAGE_MODE = 'idb';
+        if(migrated) toast('已将 '+migrated+' 条历史数据迁移到新存储');
         return;
       }
-      // 库为空但 localStorage 有旧数据 → 先载入，随后由 migrateLegacyData 写入 IndexedDB
-      if(loadFromLocalStorage()){
-        STORAGE_MODE = 'idb';
-        await hydrateImages();
-        return;
-      }
+      // 库为空：没有历史数据，保留内置示例（降级读一次 localStorage 兼容旧版本）
       STORAGE_MODE = 'idb';
+      loadFromLocalStorage();
       return;
     }catch(e){ /* IndexedDB 打开失败，降级 */ }
   }
@@ -713,13 +713,103 @@ async function persistToIdb(){
     else toast('保存失败：' + ((e && e.message) || e));
   }
 }
-/**
- * 写盘入口。保持同步签名，所有既有调用点无需改动；
- * 实际写 IndexedDB 是异步的（Issue-31 会在此加防抖与强制落盘）。
- */
-function saveDB(){
+/* ---------- 写策略：防抖 + 切后台强制落盘 ---------- */
+/** 输入停止 3 秒后写盘，连续输入不会反复触发事务 */
+var PERSIST_DELAY = 3000;
+var persistTimer = null;
+var persistPending = false;
+
+/** 立即落盘（取消未执行的防抖） */
+function flushPersist(){
+  if(persistTimer){ clearTimeout(persistTimer); persistTimer = null; }
+  persistPending = false;
   if(STORAGE_MODE === 'idb') persistToIdb();
   else saveDBLegacy();
+}
+
+/**
+ * 写盘入口。保持同步签名，所有既有调用点无需改动。
+ * 每次调用重置定时器：连续输入只在停顿 3 秒后写一次。
+ */
+function saveDB(){
+  persistPending = true;
+  if(persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(function(){
+    persistTimer = null;
+    flushPersist();
+  }, PERSIST_DELAY);
+}
+
+/**
+ * 页面切后台 / 关闭时立刻落盘。
+ * 移动端用户习惯直接划掉 App，不点保存，只靠防抖会丢掉最后 3 秒的编辑。
+ */
+function armFlushHooks(){
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden) flushPersist();
+  });
+  window.addEventListener('pagehide', flushPersist);
+  window.addEventListener('beforeunload', flushPersist);
+}
+
+/* ---------- 一次性迁移：localStorage → IndexedDB ---------- */
+function dataUrlToBlob(dataUrl){
+  return fetch(dataUrl).then(function(res){ return res.blob(); });
+}
+
+/**
+ * 把 localStorage 时代的旧数据搬进 IndexedDB。
+ * - 旧图片是 dataURL，转成 Blob 存入图片仓库（顺带压缩 + 去重），否则迁移后图片会丢
+ * - 迁移后保留 localStorage 副本作为回滚保险，不主动删除
+ * @returns {Promise<number>} 迁移的笔记条数
+ */
+async function migrateLegacyData(){
+  if(STORAGE_MODE !== 'idb') return 0;
+  try{
+    await noteDB.open();
+    var flag = await noteDB.getMeta('migratedFrom');
+    if(flag) return 0;                                   // 已迁移过，不再重复
+
+    var rows = await noteDB.listNotes();
+    if(rows.length){ await noteDB.setMeta('migratedFrom', 'fresh'); return 0; }
+
+    var raw = null;
+    try { raw = localStorage.getItem(LS_KEY); } catch(e){ raw = null; }
+    if(!raw){ await noteDB.setMeta('migratedFrom', 'fresh'); return 0; }
+
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch(e){ parsed = null; }
+    if(!parsed || !parsed.records){ await noteDB.setMeta('migratedFrom', 'fresh'); return 0; }
+
+    var legacy = parsed.records;
+    var keys = Object.keys(legacy);
+    if(!keys.length){ await noteDB.setMeta('migratedFrom', 'fresh'); return 0; }
+
+    for(var i = 0; i < keys.length; i++){
+      var k = keys[i];
+      var r = legacy[k];
+      r.id = k;
+      if(r.image_id === undefined) r.image_id = null;
+      // 旧图片是 Base64：转成 Blob 走新管线（压缩 + 去重），不把 Base64 带进新库
+      if(typeof r.image === 'string' && r.image.indexOf('data:image/') === 0){
+        try{
+          var blob = await dataUrlToBlob(r.image);
+          var res = await noteDB.saveImage(k, blob);
+          r.image_id = res.imageId;
+        }catch(e){ /* 单张图迁移失败不阻断整体 */ }
+      }
+      delete r.image;      // 运行时字段，不入库
+    }
+
+    await noteDB.putManyNotes(keys.map(function(k){ return legacy[k]; }), Date.now());
+    if(parsed.folders) await noteDB.setMeta('folders', parsed.folders);
+    if(parsed.events) await noteDB.setMeta('events', parsed.events);
+    if(parsed.settings) await noteDB.setMeta('settings', parsed.settings);
+    await noteDB.setMeta('migratedFrom', 'localStorage@v1');
+    return keys.length;
+  }catch(e){
+    return 0;
+  }
 }
 
 /* ============ NAVIGATION ============ */
@@ -1518,11 +1608,22 @@ function paintEditor(){
   if(d.image){ var ib=document.getElementById(type+'Img'); if(ib){ ib.style.backgroundImage='url('+d.image+')'; ib.classList.add('has-img'); ib.textContent=''; } }
   bindEditor(type);
 }
+/**
+ * 编辑过程中自动存草稿：把改动写回内存记录并触发防抖落盘（3 秒）。
+ * 只对「已存在的记录」生效 —— 新建记录仍须点对勾才入库，
+ * 以保留「返回键 = 放弃未保存改动」的既定语义。
+ */
+function autoSaveDraft(){
+  if(!editing || editing.isNew) return;
+  if(!DB.records[editing.id]) return;
+  DB.records[editing.id] = clone(editing.data);
+  saveDB();
+}
 function bindEditor(type){
   var c=document.getElementById(type+'Content');
-  var titleEl=document.getElementById(type+'Title'); if(titleEl) titleEl.addEventListener('input', function(){ editing.data.title=this.textContent; });
-  var bodyEl=document.getElementById(type+'Body'); if(bodyEl) bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; });
-  c.querySelectorAll('[data-priority]').forEach(function(seg){ seg.addEventListener('click', function(){ var level=parseInt(seg.getAttribute('data-priority'),10); editing.data.priority=level; c.querySelectorAll('[data-priority]').forEach(function(s){ var l=parseInt(s.getAttribute('data-priority'),10); var m=getPriorityMeta(l); var isActive=l===level; s.classList.toggle('active',isActive); s.style.background=isActive?m.color:''; }); playSound('toggle'); }); });
+  var titleEl=document.getElementById(type+'Title'); if(titleEl) titleEl.addEventListener('input', function(){ editing.data.title=this.textContent; autoSaveDraft(); });
+  var bodyEl=document.getElementById(type+'Body'); if(bodyEl) bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; autoSaveDraft(); });
+  c.querySelectorAll('[data-priority]').forEach(function(seg){ seg.addEventListener('click', function(){ var level=parseInt(seg.getAttribute('data-priority'),10); editing.data.priority=level; c.querySelectorAll('[data-priority]').forEach(function(s){ var l=parseInt(s.getAttribute('data-priority'),10); var m=getPriorityMeta(l); var isActive=l===level; s.classList.toggle('active',isActive); s.style.background=isActive?m.color:''; }); playSound('toggle'); autoSaveDraft(); }); });
   // 提醒时间：滚盘选择，取代手动输入 HH:MM
   var rem=document.getElementById(type+'Reminder'); if(rem) rem.addEventListener('click', function(){
     var cur=parseWheelTime(editing.data.reminder) || { h:18, m:0 };
@@ -1542,8 +1643,8 @@ function bindEditor(type){
       document.getElementById(type+'Date').querySelector('span').textContent=d;
     });
   });
-  c.querySelectorAll('[data-cb]').forEach(function(cb){ cb.addEventListener('click', function(ev){ ev.stopPropagation(); playSound('toggle'); var ci=parseInt(cb.getAttribute('data-ci'),10); var on=cb.classList.contains('on'); cb.classList.toggle('on',!on); cb.classList.toggle('off',on); var svg=cb.querySelector('svg'); if(!on){ if(!svg) cb.innerHTML=CHECK_SVG; } else { if(svg) svg.remove(); } editing.data.checklist[ci].c=!on; }); });
-  c.querySelectorAll('[data-citext]').forEach(function(t){ t.addEventListener('input', function(){ var ci=parseInt(t.closest('[data-ci]').getAttribute('data-ci'),10); editing.data.checklist[ci].t=this.textContent; }); });
+  c.querySelectorAll('[data-cb]').forEach(function(cb){ cb.addEventListener('click', function(ev){ ev.stopPropagation(); playSound('toggle'); var ci=parseInt(cb.getAttribute('data-ci'),10); var on=cb.classList.contains('on'); cb.classList.toggle('on',!on); cb.classList.toggle('off',on); var svg=cb.querySelector('svg'); if(!on){ if(!svg) cb.innerHTML=CHECK_SVG; } else { if(svg) svg.remove(); } editing.data.checklist[ci].c=!on; autoSaveDraft(); }); });
+  c.querySelectorAll('[data-citext]').forEach(function(t){ t.addEventListener('input', function(){ var ci=parseInt(t.closest('[data-ci]').getAttribute('data-ci'),10); editing.data.checklist[ci].t=this.textContent; autoSaveDraft(); }); });
   c.querySelectorAll('[data-cdel]').forEach(function(btn){ btn.addEventListener('click', function(ev){ ev.stopPropagation(); var ci=parseInt(btn.getAttribute('data-cdel'),10); editing.data.checklist=deleteChecklistItem(editing.data.checklist, ci); paintEditor(); }); });
   var addci=c.querySelector('[data-addci]'); if(addci) addci.addEventListener('click', function(){ playSound('toggle'); editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); });
   var tagsEl=document.getElementById(type+'Tags'); if(tagsEl) tagsEl.addEventListener('click', function(e){ var tag=e.target.closest('[data-tag-del]'); if(tag){ var t=tag.getAttribute('data-tag-del'); editing.data.tags=editing.data.tags.filter(function(x){return x!==t;}); paintEditor(); return; } if(e.target.classList.contains('tag') && e.target.textContent.indexOf('+')<0) return;
