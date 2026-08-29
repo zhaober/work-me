@@ -519,3 +519,76 @@ export function describeStorageError(err){
   }
   return '保存失败：' + ((err && err.message) || '未知原因');
 }
+
+/* ============ 多级提醒（12306 式） ============ */
+/** 默认提醒方案：提前 3 小时开始，每 30 分钟一次，最晚提前 5 分钟，并含到点提醒 */
+export const DEFAULT_REMINDER_PLAN = { startMin: 180, intervalMin: 30, stopMin: 5, includeTarget: true };
+
+/** 规范化提醒方案：缺失或非法字段回落默认值 */
+export function normalizeReminderPlan(plan){
+  var d = DEFAULT_REMINDER_PLAN;
+  var p = plan || {};
+  var startMin = Number(p.startMin), intervalMin = Number(p.intervalMin), stopMin = Number(p.stopMin);
+  return {
+    startMin: isFinite(startMin) && startMin > 0 ? startMin : d.startMin,
+    intervalMin: isFinite(intervalMin) && intervalMin > 0 ? intervalMin : d.intervalMin,
+    stopMin: isFinite(stopMin) && stopMin >= 0 ? stopMin : d.stopMin,
+    includeTarget: typeof p.includeTarget === 'boolean' ? p.includeTarget : d.includeTarget
+  };
+}
+
+/** 把提前量（分钟）格式化为「还有 X 小时 Y 分钟」 */
+export function formatReminderLabel(leadMin){
+  var m = Number(leadMin);
+  if(!isFinite(m) || m <= 0) return '时间到';
+  if(m < 60) return '还有 ' + m + ' 分钟';
+  var h = Math.floor(m / 60), rem = m % 60;
+  if(rem === 0) return '还有 ' + h + ' 小时';
+  return '还有 ' + h + ' 小时 ' + rem + ' 分钟';
+}
+
+/** 由日期 YYYY-MM-DD 与时间 HH:MM 组合出本地时间戳；任一非法返回 NaN */
+export function combineDateTime(dateStr, timeStr){
+  var d = parseWheelDate(dateStr), t = parseWheelTime(timeStr);
+  if(!d || !t) return NaN;
+  return new Date(d.y, d.m - 1, d.d, t.h, t.m, 0, 0).getTime();
+}
+
+/**
+ * 计算提前提醒的分钟序列（从 startMin 递减到 stopMin，末尾不足一步时补上 stopMin）
+ * @returns {number[]} 降序的提前分钟数
+ */
+export function buildReminderLeads(plan){
+  var p = normalizeReminderPlan(plan);
+  var leads = [];
+  for(var lead = p.startMin; lead >= p.stopMin; lead -= p.intervalMin){
+    leads.push(lead);
+  }
+  // 递减序列未落在 stopMin 上时补一次，保证「截止前最后一次提醒」
+  if(leads.length && leads[leads.length - 1] > p.stopMin) leads.push(p.stopMin);
+  if(!leads.length) leads.push(p.stopMin);
+  return leads;
+}
+
+/**
+ * 生成提醒时刻表（12306 式多级提醒）
+ * @param {number} targetMs 目标时刻时间戳（用户设定的提醒时间）
+ * @param {number} nowMs 当前时间戳
+ * @param {object} plan 提醒方案
+ * @returns {Array<{at:number, leadMin:number, label:string}>} 按时间升序，
+ *          仅包含仍未来临且不晚于目标时刻的提醒
+ */
+export function buildReminderSchedule(targetMs, nowMs, plan){
+  var target = Number(targetMs), now = Number(nowMs);
+  if(!isFinite(target) || !isFinite(now)) return [];
+  var p = normalizeReminderPlan(plan);
+  var MIN = 60000;
+  var out = [];
+  buildReminderLeads(p).forEach(function(lead){
+    var at = target - lead * MIN;
+    if(at > now && at <= target) out.push({ at: at, leadMin: lead, label: formatReminderLabel(lead) });
+  });
+  if(p.includeTarget && target > now) out.push({ at: target, leadMin: 0, label: '时间到' });
+  out.sort(function(a, b){ return a.at - b.at; });
+  return out;
+}

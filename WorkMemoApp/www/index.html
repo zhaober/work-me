@@ -481,7 +481,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
@@ -1337,6 +1337,9 @@ function saveEditor(){
   if(isNew){ var nid='r'+Date.now(); d.folderId=editing.folderId; DB.records[nid]=clone(d); editing.id=nid; editing.isNew=false; }
   else { DB.records[editing.id]=clone(d); }
   saveDB();
+  /* 保存后重新登记所有已保存记录的提醒（含本条），避免仅前台 setTimeout 在重启后丢失 */
+  clearTimerList(previewTimers);
+  armAllReminders();
   toast(isNew?'已新建并保存':'已保存');
   playSound('success');
   renderFolder(editing.folderId);
@@ -1347,11 +1350,60 @@ function deleteCurrentRecord(){
   if(!editing || editing.isNew) return;
   openConfirmModal('删除记录', '确定删除“'+(editing.data.title||'未命名')+'”吗？此操作不可恢复。', function(ok){ if(ok){ delete DB.records[editing.id]; saveDB(); toast('已删除'); playSound('delete'); var fid=editing.folderId; navStack=[{screen:'folder', id:fid}]; renderFolder(fid); show('folder'); } });
 }
+/* ============ REMINDER (闹钟 + 12306 式多级提醒) ============ */
+/* reminderTimers: 已保存记录登记的提醒；previewTimers: 当前编辑中、尚未保存的提醒 */
+var reminderTimers = [], previewTimers = [];
+function clearTimerList(list){ list.forEach(function(t){ clearTimeout(t); }); list.length = 0; }
+/** 申请系统通知权限（需在用户交互后调用） */
+function ensureNotifyPermission(){
+  if(typeof Notification === 'undefined') return Promise.resolve(false);
+  if(Notification.permission === 'granted') return Promise.resolve(true);
+  if(Notification.permission === 'denied') return Promise.resolve(false);
+  try { return Notification.requestPermission().then(function(p){ return p === 'granted'; }); }
+  catch(e){ return Promise.resolve(false); }
+}
+/** 触发一次提醒：系统通知 + 震动 + 音效 + 应用内提示（即使退到后台也能收到通知） */
+function fireAlarm(label, title){
+  playSound('success');
+  try { if(navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e){}
+  try {
+    if(typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+      new Notification('⏰ ' + label, { body: title || '计划', tag: 'work-memo-reminder' });
+    }
+  } catch(e){}
+  toast('⏰ ' + label + '：' + (title || '计划'));
+}
+/** 按提醒方案为一条记录登记多级提醒，返回登记条数 */
+function armReminders(record, plan, list){
+  var target = combineDateTime(record.date, record.reminder);
+  if(!isFinite(target)) return 0;
+  var now = Date.now();
+  var schedule = buildReminderSchedule(target, now, plan);
+  schedule.forEach(function(item){
+    var delay = Math.max(0, item.at - now);
+    list.push(setTimeout(function(){ fireAlarm(item.label, record.title); }, delay));
+  });
+  return schedule.length;
+}
+/** 重新登记所有已保存记录的提醒（应用重启后 setTimeout 会丢失） */
+function armAllReminders(){
+  clearTimerList(reminderTimers);
+  var total = 0;
+  Object.keys(DB.records).forEach(function(k){
+    var r = DB.records[k];
+    if(!r.reminder || !r.date) return;
+    total += armReminders(r, DEFAULT_REMINDER_PLAN, reminderTimers);
+  });
+  return total;
+}
+/** 编辑器里设定提醒时间后调用：登记当前编辑记录的提醒（尚未保存，属预览） */
 function scheduleReminder(time){
-  var parts=time.split(':'); var h=parseInt(parts[0],10), m=parseInt(parts[1],10);
-  var now=new Date(); var target=new Date(); target.setHours(h,m,0,0);
-  var diff=target-now; if(diff<=0) diff+=24*3600*1000;
-  setTimeout(function(){ toast('⏰ 提醒：'+(editing&&editing.data.title||'计划')); }, diff);
+  if(!editing) return;
+  clearTimerList(previewTimers);
+  var n = armReminders(editing.data, DEFAULT_REMINDER_PLAN, previewTimers);
+  ensureNotifyPermission();
+  if(n) toast('已设置 ' + n + ' 次提醒，最后一次在到点');
+  else toast('该时间点已过，未登记提醒');
 }
 var currentImgTarget=null;
 document.getElementById('imgFile').addEventListener('change', function(){
@@ -1454,6 +1506,8 @@ renderHome(); renderCalendar(); renderStats();
 maybeAutoShowQuote();
 /* 恢复上次选择的导出文件夹（句柄持久化在 IndexedDB） */
 loadExportDirHandle().then(function(h){ if(h){ exportDirHandle=h; exportDirLabel=h.name||'所选文件夹'; } });
+/* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
+armAllReminders();
 </script>
 </body>
 </html>
