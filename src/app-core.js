@@ -342,3 +342,109 @@ export function describeExportLocation(fileName, customDir){
     message: '文件已保存到' + DEFAULT_DOWNLOAD_HINT + '\n文件名：' + name + '\n\n· 手机：文件管理 → 下载\n· 电脑：浏览器默认下载文件夹'
   };
 }
+
+/* ============ 滚轮选择器（滚盘） ============ */
+/** 闰年判断；非数字返回 false */
+export function isLeapYear(year){
+  // null/undefined/'' 会被 Number() 转成 0，而公元 0 年恰好是闰年，须先拦截
+  if(year === null || year === undefined || year === '') return false;
+  var y = Number(year);
+  if(!isFinite(y)) return false;
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
+/** 某年某月的天数；月份非法返回 0 */
+export function daysInMonth(year, month){
+  if(year === null || year === undefined || year === '') return 0;
+  if(month === null || month === undefined || month === '') return 0;
+  var y = Number(year), m = Number(month);
+  if(!isFinite(y) || !isFinite(m) || m < 1 || m > 12) return 0;
+  var table = [31,28,31,30,31,30,31,31,30,31,30,31];
+  if(m === 2 && isLeapYear(y)) return 29;
+  return table[m - 1];
+}
+
+function range(from, to){ var a=[]; for(var i=from;i<=to;i++) a.push(i); return a; }
+
+/**
+ * 构建日期滚轮的三列选项（年 / 月 / 日）
+ * @param {number} year 当前年
+ * @param {number} month 当前月 1-12
+ * @param {{yearRange?:number}} opts yearRange 为年的前后跨度，默认 10
+ */
+export function buildDateWheelOptions(year, month, opts){
+  var o = opts || {};
+  var span = Number(o.yearRange) > 0 ? Number(o.yearRange) : 10;
+  var y = Number(year), m = Number(month);
+  if(!isFinite(y)) y = 1970;
+  if(!isFinite(m) || m < 1 || m > 12) m = 1;
+  var days = daysInMonth(y, m) || 31;
+  return { years: range(y - span, y + span), months: range(1, 12), days: range(1, days) };
+}
+
+/** 构建时间滚轮的两列选项（时 0-23 / 分按 step 步长） */
+export function buildTimeWheelOptions(step){
+  var s = Number(step) > 0 ? Math.floor(Number(step)) : 1;
+  if(s > 60) s = 60;
+  var minutes = [];
+  for(var i = 0; i < 60; i += s) minutes.push(i);
+  return { hours: range(0, 23), minutes: minutes };
+}
+
+/** 把日夹到当月有效范围（切换年/月后防止出现 2 月 31 日） */
+export function clampDay(year, month, day){
+  var max = daysInMonth(year, month);
+  if(!max) return 1;
+  var d = Number(day);
+  if(!isFinite(d)) return 1;
+  if(d < 1) return 1;
+  if(d > max) return max;
+  return d;
+}
+
+/** 按索引取滚轮值，索引越界夹到首尾 */
+export function wheelValue(options, index){
+  var arr = options || [];
+  if(!arr.length) return undefined;
+  var i = Number(index);
+  if(!isFinite(i)) i = 0;
+  i = Math.round(i);
+  if(i < 0) i = 0;
+  if(i > arr.length - 1) i = arr.length - 1;
+  return arr[i];
+}
+
+/** 值 -> 滚轮索引；不存在则返回 0 */
+export function wheelIndex(options, value){
+  var arr = options || [];
+  var i = arr.indexOf(value);
+  return i < 0 ? 0 : i;
+}
+
+/** 组装 YYYY-MM-DD（不足两位补零） */
+export function formatWheelDate(year, month, day){
+  return String(Number(year)) + '-' + String(Number(month)).padStart(2,'0') + '-' + String(Number(day)).padStart(2,'0');
+}
+
+/** 组装 HH:MM（不足两位补零） */
+export function formatWheelTime(hour, minute){
+  return String(Number(hour)).padStart(2,'0') + ':' + String(Number(minute)).padStart(2,'0');
+}
+
+/** 解析 YYYY-MM-DD -> {y,m,d}；非法日期（含 2 月 30 日）返回 null */
+export function parseWheelDate(str){
+  var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(str == null ? '' : str).trim());
+  if(!m) return null;
+  var y = +m[1], mo = +m[2], d = +m[3];
+  if(mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) return null;
+  return { y:y, m:mo, d:d };
+}
+
+/** 解析 HH:MM -> {h,m}；非法返回 null */
+export function parseWheelTime(str){
+  var m = /^(\d{1,2}):(\d{2})$/.exec(String(str == null ? '' : str).trim());
+  if(!m) return null;
+  var h = +m[1], mi = +m[2];
+  if(h < 0 || h > 23 || mi < 0 || mi > 59) return null;
+  return { h:h, m:mi };
+}

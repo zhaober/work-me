@@ -178,6 +178,22 @@
   .modal-actions button{background:none;border:none;font-size:15px;font-weight:600;color:var(--text-2);cursor:pointer;padding:6px 8px;}
   .modal-actions .primary{color:var(--accent);}
 
+  /* wheel picker（滚盘） */
+  .wheel-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:60;display:none;align-items:flex-end;}
+  .wheel-overlay.show{display:flex;}
+  .wheel-card{background:var(--card);border-radius:18px 18px 0 0;width:100%;padding:14px 14px 6px;display:flex;flex-direction:column;gap:10px;}
+  .wheel-title{font-size:16px;font-weight:700;color:var(--text);text-align:center;}
+  .wheel-cols{position:relative;display:flex;gap:6px;height:200px;overflow:hidden;}
+  .wheel-band{position:absolute;left:0;right:0;top:80px;height:40px;background:var(--accent-soft);border-radius:10px;pointer-events:none;}
+  .wheel-col{flex:1;height:200px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;-ms-overflow-style:none;position:relative;}
+  .wheel-col::-webkit-scrollbar{display:none;}
+  .wheel-item{height:40px;line-height:40px;text-align:center;font-size:16px;color:var(--text-3);scroll-snap-align:center;transition:color .12s,transform .12s;white-space:nowrap;}
+  .wheel-item.sel{color:var(--text);font-weight:700;transform:scale(1.06);}
+  .wheel-actions{display:flex;justify-content:flex-end;gap:14px;}
+  .wheel-actions button{background:none;border:none;font-size:15px;font-weight:600;color:var(--text-2);cursor:pointer;padding:6px 8px;}
+  .wheel-actions .primary{color:var(--accent);}
+  .wheel-field{display:block;width:100%;text-align:left;border:none;border-bottom:1px solid var(--border);padding:10px 0;font-size:15px;outline:none;color:var(--text);font-family:inherit;background:transparent;cursor:pointer;}
+
   /* action sheet */
   .sheet-overlay{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:50;display:none;}
   .sheet-overlay.show{display:block;}
@@ -442,10 +458,22 @@
     <div class="modal-card">
       <div class="mtitle" id="eventModalTitle">添加重要日子</div>
       <input type="text" id="eventName" placeholder="如：妈妈生日" />
-      <input type="text" id="eventDate" placeholder="YYYY-MM-DD" />
+      <button type="button" class="wheel-field" id="eventDate"><span id="eventDateText">—</span></button>
       <div class="modal-actions">
         <button id="eventCancel">取消</button>
         <button class="primary" id="eventSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WHEEL PICKER (滚盘选择 日期/时间) -->
+  <div class="wheel-overlay" id="wheelOverlay">
+    <div class="wheel-card">
+      <div class="wheel-title" id="wheelTitle">请选择</div>
+      <div class="wheel-cols" id="wheelCols"></div>
+      <div class="wheel-actions">
+        <button id="wheelCancel">取消</button>
+        <button class="primary" id="wheelOk">确定</button>
       </div>
     </div>
   </div>
@@ -453,7 +481,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
@@ -671,6 +699,117 @@ function closeSheet(){ sheetOverlay.classList.remove('show'); sheetCb=null; }
 document.getElementById('sheetCancel').addEventListener('click', closeSheet);
 sheetOverlay.addEventListener('click', function(e){ if(e.target===sheetOverlay) closeSheet(); });
 sheetItems.addEventListener('click', function(e){ var item=e.target.closest('[data-si]'); if(!item) return; var idx=parseInt(item.getAttribute('data-si'),10); if(sheetCb) sheetCb(idx); closeSheet(); });
+
+/* ============ WHEEL PICKER (滚盘) ============ */
+var WHEEL_ITEM_H = 40, WHEEL_VISIBLE = 5;
+var wheelState = null, wheelBusy = false;
+function sameArray(a, b){
+  if(a === b) return true;
+  if(!a || !b || a.length !== b.length) return false;
+  for(var i=0;i<a.length;i++) if(a[i] !== b[i]) return false;
+  return true;
+}
+/** 单列内容：上下留白，使首尾项也能滚到中央高亮区 */
+function wheelColInner(col){
+  var pad = (WHEEL_VISIBLE - 1) / 2 * WHEEL_ITEM_H;
+  var suffix = col.suffix || '';
+  return '<div style="height:' + pad + 'px"></div>'
+    + col.options.map(function(o){ return '<div class="wheel-item">' + o + suffix + '</div>'; }).join('')
+    + '<div style="height:' + pad + 'px"></div>';
+}
+/** 按 scrollTop 计算当前选中项并高亮 */
+function wheelPick(el, col){
+  var idx = Math.round(el.scrollTop / WHEEL_ITEM_H);
+  col.value = wheelValue(col.options, idx);
+  idx = wheelIndex(col.options, col.value);
+  var items = el.querySelectorAll('.wheel-item');
+  for(var i=0;i<items.length;i++) items[i].classList.toggle('sel', i===idx);
+  if(!wheelBusy) refreshWheelCols();
+}
+function bindWheelCol(el, col){ el.addEventListener('scroll', function(){ wheelPick(el, col); }); }
+/** 某列变化后重建依赖它的列（如切换年/月后重算天数）；内容未变则不重建，避免滚动事件递归 */
+function refreshWheelCols(){
+  if(!wheelState || wheelBusy) return;
+  wheelBusy = true;
+  try {
+    var values = {};
+    wheelState.cols.forEach(function(c){ values[c.key] = c.value; });
+    wheelState.cols.forEach(function(col){
+      if(typeof col.rebuild !== 'function') return;
+      var next = col.rebuild(values);
+      if(!next || !next.length || sameArray(next, col.options)) return;
+      var found = next.indexOf(col.value);
+      var idx = found >= 0 ? found : next.length - 1;
+      col.options = next;
+      col.value = wheelValue(next, idx);
+      var el = document.querySelector('#wheelCols [data-wcol="' + col.key + '"]');
+      if(!el) return;
+      el.innerHTML = wheelColInner(col);
+      bindWheelCol(el, col);
+      el.scrollTop = idx * WHEEL_ITEM_H;
+      var items = el.querySelectorAll('.wheel-item');
+      if(items[idx]) items[idx].classList.add('sel');
+    });
+  } finally { wheelBusy = false; }
+}
+/** 打开滚盘：opts {title, cols:[{key,options,value,suffix,rebuild}], onOk(values)} */
+function openWheel(opts){
+  playSound('pop');
+  wheelState = opts;
+  document.getElementById('wheelTitle').textContent = opts.title || '请选择';
+  var cols = document.getElementById('wheelCols');
+  cols.innerHTML = '<div class="wheel-band"></div>'
+    + opts.cols.map(function(c){ return '<div class="wheel-col" data-wcol="' + c.key + '">' + wheelColInner(c) + '</div>'; }).join('');
+  wheelBusy = true;
+  opts.cols.forEach(function(col){
+    var el = cols.querySelector('[data-wcol="' + col.key + '"]');
+    if(!el) return;
+    bindWheelCol(el, col);
+    var idx = wheelIndex(col.options, col.value);
+    col.value = wheelValue(col.options, idx);
+    el.scrollTop = idx * WHEEL_ITEM_H;
+    var items = el.querySelectorAll('.wheel-item');
+    if(items[idx]) items[idx].classList.add('sel');
+  });
+  wheelBusy = false;
+  document.getElementById('wheelOverlay').classList.add('show');
+}
+function closeWheel(){ document.getElementById('wheelOverlay').classList.remove('show'); wheelState = null; }
+document.getElementById('wheelCancel').addEventListener('click', closeWheel);
+document.getElementById('wheelOverlay').addEventListener('click', function(e){ if(e.target===this) closeWheel(); });
+document.getElementById('wheelOk').addEventListener('click', function(){
+  if(!wheelState){ closeWheel(); return; }
+  var values = {}, cb = wheelState.onOk;
+  wheelState.cols.forEach(function(c){ values[c.key] = c.value; });
+  closeWheel();
+  if(cb) cb(values);
+});
+/** 日期滚盘：init {y,m,d} -> cb({year,month,day}) */
+function openDateWheel(title, init, cb){
+  var o = buildDateWheelOptions(init.y, init.m, { yearRange: 10 });
+  openWheel({
+    title: title,
+    cols: [
+      { key:'year',  options:o.years,  value:init.y, suffix:'年' },
+      { key:'month', options:o.months, value:init.m, suffix:'月' },
+      { key:'day',   options:o.days,   value:init.d, suffix:'日',
+        rebuild: function(v){ return buildDateWheelOptions(v.year, v.month, { yearRange:10 }).days; } }
+    ],
+    onOk: function(v){ cb({ year:v.year, month:v.month, day:clampDay(v.year, v.month, v.day) }); }
+  });
+}
+/** 时间滚盘：init {h,m} -> cb({hour,minute}) */
+function openTimeWheel(title, init, cb){
+  var t = buildTimeWheelOptions(1);
+  openWheel({
+    title: title,
+    cols: [
+      { key:'hour',   options:t.hours,   value:init.h, suffix:'时' },
+      { key:'minute', options:t.minutes, value:init.m, suffix:'分' }
+    ],
+    onOk: function(v){ cb({ hour:v.hour, minute:v.minute }); }
+  });
+}
 
 /* ============ RENDER: HOME ============ */
 function renderHome(){
@@ -1150,11 +1289,24 @@ function bindEditor(type){
   var titleEl=document.getElementById(type+'Title'); if(titleEl) titleEl.addEventListener('input', function(){ editing.data.title=this.textContent; });
   var bodyEl=document.getElementById(type+'Body'); if(bodyEl) bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; });
   c.querySelectorAll('[data-priority]').forEach(function(seg){ seg.addEventListener('click', function(){ var level=parseInt(seg.getAttribute('data-priority'),10); editing.data.priority=level; c.querySelectorAll('[data-priority]').forEach(function(s){ var l=parseInt(s.getAttribute('data-priority'),10); var m=getPriorityMeta(l); var isActive=l===level; s.classList.toggle('active',isActive); s.style.background=isActive?m.color:''; }); playSound('toggle'); }); });
+  // 提醒时间：滚盘选择，取代手动输入 HH:MM
   var rem=document.getElementById(type+'Reminder'); if(rem) rem.addEventListener('click', function(){
-    openPromptModal('设置提醒时间', '格式 HH:MM', editing.data.reminder||'18:00', function(v){ if(v && /^\d{1,2}:\d{2}$/.test(v)){ editing.data.reminder=v; document.getElementById(type+'Reminder').querySelector('span').textContent=v+' 提醒'; toast('已设置提醒：'+v); scheduleReminder(v); } });
+    var cur=parseWheelTime(editing.data.reminder) || { h:18, m:0 };
+    openTimeWheel('设置提醒时间', cur, function(v){
+      var t=formatWheelTime(v.hour, v.minute);
+      editing.data.reminder=t;
+      document.getElementById(type+'Reminder').querySelector('span').textContent=t+' 提醒';
+      toast('已设置提醒：'+t); scheduleReminder(t);
+    });
   });
+  // 记录日期：滚盘选择，取代手动输入 YYYY-MM-DD
   var dateEl=document.getElementById(type+'Date'); if(dateEl) dateEl.addEventListener('click', function(){
-    openPromptModal('选择日期', '格式 YYYY-MM-DD', editing.data.date, function(v){ if(v && /^\d{4}-\d{2}-\d{2}$/.test(v)){ editing.data.date=v; document.getElementById(type+'Date').querySelector('span').textContent=v; } });
+    var cur=parseWheelDate(editing.data.date) || parseWheelDate(TODAY) || { y:1970, m:1, d:1 };
+    openDateWheel('选择日期', cur, function(v){
+      var d=formatWheelDate(v.year, v.month, v.day);
+      editing.data.date=d;
+      document.getElementById(type+'Date').querySelector('span').textContent=d;
+    });
   });
   c.querySelectorAll('[data-cb]').forEach(function(cb){ cb.addEventListener('click', function(ev){ ev.stopPropagation(); playSound('toggle'); var ci=parseInt(cb.getAttribute('data-ci'),10); var on=cb.classList.contains('on'); cb.classList.toggle('on',!on); cb.classList.toggle('off',on); var svg=cb.querySelector('svg'); if(!on){ if(!svg) cb.innerHTML=CHECK_SVG; } else { if(svg) svg.remove(); } editing.data.checklist[ci].c=!on; }); });
   c.querySelectorAll('[data-citext]').forEach(function(t){ t.addEventListener('input', function(){ var ci=parseInt(t.closest('[data-ci]').getAttribute('data-ci'),10); editing.data.checklist[ci].t=this.textContent; }); });
@@ -1222,21 +1374,27 @@ function openEventModal(){
   var def=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(calSelected).padStart(2,'0');
   document.getElementById('eventModalTitle').textContent='添加重要日子';
   document.getElementById('eventName').value='';
-  document.getElementById('eventDate').value=def;
+  document.getElementById('eventDateText').textContent=def;
   document.getElementById('eventModal').classList.add('show');
   document.getElementById('eventName').focus();
 }
 function closeEventModal(){ document.getElementById('eventModal').classList.remove('show'); }
 document.getElementById('eventCancel').addEventListener('click', closeEventModal);
 document.getElementById('eventModal').addEventListener('click', function(e){ if(e.target===this) closeEventModal(); });
+/* 重要日子：日期改用滚盘选择，取代手动输入 YYYY-MM-DD */
+document.getElementById('eventDate').addEventListener('click', function(){
+  var cur=parseWheelDate(document.getElementById('eventDateText').textContent) || { y:calYear, m:calMonth+1, d:calSelected };
+  openDateWheel('选择日期', cur, function(v){
+    document.getElementById('eventDateText').textContent=formatWheelDate(v.year, v.month, v.day);
+  });
+});
 document.getElementById('eventSave').addEventListener('click', function(){
   var name=(document.getElementById('eventName').value||'').trim();
-  var date=(document.getElementById('eventDate').value||'').trim();
+  var date=(document.getElementById('eventDateText').textContent||'').trim();
   if(!name){ toast('请输入名称'); return; }
-  if(!/^\d{4}-\d{1,2}-\d{1,2}$/.test(date)){ toast('日期格式应为 YYYY-MM-DD'); return; }
-  var pp=date.split('-'); var mm=parseInt(pp[1],10), dd=parseInt(pp[2],10);
-  if(mm<1||mm>12||dd<1||dd>31){ toast('日期不合法'); return; }
-  DB.events.push({id:'e'+Date.now(), name:name, month:mm, day:dd, date:date});
+  var pd=parseWheelDate(date);
+  if(!pd){ toast('请选择有效的日期'); return; }
+  DB.events.push({id:'e'+Date.now(), name:name, month:pd.m, day:pd.d, date:formatWheelDate(pd.y, pd.m, pd.d)});
   saveDB(); closeEventModal(); renderCalendar(); toast('已添加重要日子'); playSound('success');
 });
 function deleteCustomEvent(id){ DB.events=DB.events.filter(function(e){return e.id!==id;}); saveDB(); renderCalendar(); }
