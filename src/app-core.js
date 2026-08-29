@@ -1,6 +1,7 @@
 /**
  * 工作计划与复盘备忘录 App - 核心工具函数（纯逻辑，可测试）
  */
+import LZString from './lz-string.js';
 
 /** 返回今天的日期字符串 YYYY-MM-DD（基于本地时间） */
 export function getTodayStr() {
@@ -674,4 +675,152 @@ export function buildReminderSchedule(targetMs, nowMs, plan){
   if(p.includeTarget && target > now) out.push({ at: target, leadMin: 0, label: '时间到' });
   out.sort(function(a, b){ return a.at - b.at; });
   return out;
+}
+
+/* ============ IndexedDB 存储内核（数据编解码，纯函数） ============ */
+
+/** IndexedDB 库名 / 版本 / 对象仓库名 / 索引名 */
+export const IDB_NAME = 'work-memo-idb';
+export const IDB_VERSION = 1;
+export const STORES = {
+  notes: 'notes',        // 主表：笔记
+  images: 'note_images', // 图片仓库（Blob）
+  meta: 'meta'           // 键值表：folders / events / settings
+};
+export const NOTE_INDEXES = ['by_update', 'by_folder', 'by_date'];
+/** localStorage 时代的旧键名，用于一次性迁移 */
+export const LEGACY_LS_KEY = 'work-memo-db-v1';
+
+/**
+ * 正文 + 清单 → 压缩后的 Uint8Array（LZString，纯文本压缩率极高）
+ * 长文本走压缩，替代把整段 JSON 明文塞进库里。
+ */
+export function encodeNoteContent(body, checklist){
+  var payload = JSON.stringify({
+    body: typeof body === 'string' ? body : (body == null ? '' : String(body)),
+    checklist: Array.isArray(checklist) ? checklist : []
+  });
+  return LZString.compressToUint8Array(payload);
+}
+
+/**
+ * 压缩数据 → { body, checklist }；任何异常都安全回落为空内容，不抛错。
+ */
+export function decodeNoteContent(u8){
+  var empty = { body: '', checklist: [] };
+  if(!u8 || !u8.length) return empty;
+  try{
+    var arr = (u8 instanceof Uint8Array) ? u8 : new Uint8Array(u8);
+    var s = LZString.decompressFromUint8Array(arr);
+    if(!s) return empty;
+    var o = JSON.parse(s);
+    if(!o || typeof o !== 'object') return empty;
+    return {
+      body: typeof o.body === 'string' ? o.body : '',
+      checklist: Array.isArray(o.checklist) ? o.checklist : []
+    };
+  }catch(e){ return empty; }
+}
+
+/**
+ * 样式/小字段 → Uint8Array（体积很小，用 TextEncoder 直存，无需压缩）
+ */
+export function encodeStyleData(obj){
+  var s = JSON.stringify(obj == null ? {} : obj);
+  if(typeof TextEncoder !== 'undefined') return new TextEncoder().encode(s);
+  var out = new Uint8Array(s.length);
+  for(var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i) & 0xff;
+  return out;
+}
+
+/** Uint8Array → 样式对象；失败返回空对象 */
+export function decodeStyleData(u8){
+  if(!u8 || !u8.length) return {};
+  try{
+    var arr = (u8 instanceof Uint8Array) ? u8 : new Uint8Array(u8);
+    var s;
+    if(typeof TextDecoder !== 'undefined') s = new TextDecoder().decode(arr);
+    else {
+      s = '';
+      for(var i = 0; i < arr.length; i++) s += String.fromCharCode(arr[i]);
+    }
+    var o = JSON.parse(s);
+    return (o && typeof o === 'object') ? o : {};
+  }catch(e){ return {}; }
+}
+
+/**
+ * 运行时记录对象 → IndexedDB 行
+ * 正文/清单进 content_compressed，标签进 style_data，图片只留 image_id 外键。
+ */
+export function recordToRow(rec, nowMs){
+  var r = rec || {};
+  var ts = Number(nowMs);
+  return {
+    id: r.id,
+    type: r.type || 'plan',
+    folderId: (r.folderId === undefined ? null : r.folderId),
+    title: typeof r.title === 'string' ? r.title : '',
+    date: r.date || '',
+    time: r.time || '',
+    reminder: (r.reminder === undefined || r.reminder === null) ? null : r.reminder,
+    priority: typeof r.priority === 'number' ? r.priority : 0,
+    image_id: r.image_id || null,
+    update_time: typeof r.update_time === 'number' ? r.update_time : (isFinite(ts) ? ts : Date.now()),
+    content_compressed: encodeNoteContent(r.body, r.checklist),
+    style_data: encodeStyleData({ tags: Array.isArray(r.tags) ? r.tags : [] })
+  };
+}
+
+/** IndexedDB 行 → 运行时记录对象（image 字段由运行时按 image_id 填充为 blob URL） */
+export function rowToRecord(row){
+  if(!row) return null;
+  var c = decodeNoteContent(row.content_compressed);
+  var st = decodeStyleData(row.style_data);
+  return {
+    id: row.id,
+    type: row.type || 'plan',
+    folderId: row.folderId,
+    title: row.title || '',
+    date: row.date || '',
+    time: row.time || '',
+    reminder: (row.reminder === undefined) ? null : row.reminder,
+    tags: Array.isArray(st.tags) ? st.tags : [],
+    priority: typeof row.priority === 'number' ? row.priority : 0,
+    image_id: row.image_id || null,
+    image: null,
+    checklist: c.checklist,
+    body: c.body,
+    update_time: row.update_time || 0
+  };
+}
+
+/**
+ * 列表页裁剪：只保留渲染列表所需的轻量字段，
+ * 不返回 content_compressed / style_data，避免整库内容进内存。
+ */
+export function noteListRow(row){
+  if(!row) return null;
+  return {
+    id: row.id,
+    title: row.title || '',
+    type: row.type || 'plan',
+    folderId: row.folderId,
+    date: row.date || '',
+    time: row.time || '',
+    priority: typeof row.priority === 'number' ? row.priority : 0,
+    reminder: (row.reminder === undefined) ? null : row.reminder,
+    image_id: row.image_id || null,
+    update_time: row.update_time || 0
+  };
+}
+
+/** 估算一行笔记的字节占用（用于「我的」存储用量展示） */
+export function noteRowBytes(row){
+  if(!row) return 0;
+  var n = 0;
+  if(row.content_compressed && row.content_compressed.byteLength) n += row.content_compressed.byteLength;
+  if(row.style_data && row.style_data.byteLength) n += row.style_data.byteLength;
+  if(typeof row.title === 'string') n += row.title.length * 3; // UTF-8 中文按 3 字节估算
+  return n;
 }
