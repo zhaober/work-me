@@ -293,6 +293,34 @@ export function buildExportFilename(base, dateStr, ext){
 export const DEFAULT_DOWNLOAD_HINT = '系统「下载」目录';
 
 /**
+ * 规范化导出目录：去首尾空白、去尾部斜杠；空值/空白串返回 null（表示使用系统默认下载目录）
+ */
+export function normalizeExportDir(input){
+  if(input == null) return null;
+  var s = String(input).trim().replace(/[\\/]+$/, '');
+  return s.length ? s : null;
+}
+
+/** 判断运行环境是否支持选择文件夹（File System Access API） */
+export function supportsDirectoryPicker(globalObj){
+  return !!(globalObj && typeof globalObj.showDirectoryPicker === 'function');
+}
+
+/**
+ * 汇总导出目标：文件名 + 目录 -> 完整路径
+ * dir 为空时 path 仅为文件名（走系统默认下载目录）
+ */
+export function buildExportTarget(fileName, dir){
+  var d = normalizeExportDir(dir);
+  return {
+    fileName: fileName,
+    dir: d,
+    isCustom: !!d,
+    path: d ? (d + '/' + fileName) : fileName
+  };
+}
+
+/**
  * 描述导出文件的落地位置，用于明确告知用户文件存到了哪里。
  * @param {string} fileName 导出文件名
  * @param {string|null} customDir 用户自定义目录（绝对/相对路径均可）；为 null 表示使用系统默认下载目录
@@ -300,8 +328,8 @@ export const DEFAULT_DOWNLOAD_HINT = '系统「下载」目录';
  */
 export function describeExportLocation(fileName, customDir){
   var name = fileName || '导出文件';
-  if(customDir){
-    var dir = String(customDir).replace(/[\\/]+$/, '');
+  var dir = normalizeExportDir(customDir);
+  if(dir){
     return {
       hasCustomDir: true,
       path: dir + '/' + name,
