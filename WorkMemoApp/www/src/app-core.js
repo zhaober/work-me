@@ -432,6 +432,12 @@ export function formatWheelTime(hour, minute){
   return String(Number(hour)).padStart(2,'0') + ':' + String(Number(minute)).padStart(2,'0');
 }
 
+/** 获取当前时间 HH:MM */
+export function getNowTime(){
+  var d = new Date();
+  return formatWheelTime(d.getHours(), d.getMinutes());
+}
+
 /** 解析 YYYY-MM-DD -> {y,m,d}；非法日期（含 2 月 30 日）返回 null */
 export function parseWheelDate(str){
   var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(str == null ? '' : str).trim());
