@@ -491,9 +491,10 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
+import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
@@ -530,24 +531,156 @@ function allRecords(){ return Object.keys(DB.records); }
 function pathOf(id){ var p=[]; var cur=id; while(cur){ p.unshift(DB.folders[cur].name); cur=DB.folders[cur].parent; } return p; }
 function folderMeta(id){ var c=childrenOf(id).length, n=recordsOf(id).length; var s=[]; if(n) s.push(n+' 条'); if(c) s.push(c+' 子文件夹'); return s.join(' · ')||'空'; }
 
-/* ============ PERSISTENCE (localStorage) ============ */
+/* ============ PERSISTENCE (IndexedDB 为主，localStorage 降级) ============ */
 var DB_VERSION = 1;
-var LS_KEY = 'work-memo-db-v' + DB_VERSION;
-(function loadDB(){
-  try {
-    var raw = localStorage.getItem(LS_KEY);
-    if(raw){
-      var parsed = JSON.parse(raw);
-      if(parsed && parsed.folders && parsed.records){ DB.folders = parsed.folders; DB.records = parsed.records; if(parsed.events) DB.events = parsed.events; }
-      // 数据迁移：旧记录补齐 priority / events
-      Object.keys(DB.records).forEach(function(k){ if(typeof DB.records[k].priority !== 'number') DB.records[k].priority = 0; });
-      if(!DB.events) DB.events = [];
-      // 设置合并默认值：缺失/非法字段回落默认，旧数据无 settings 也能正常进入「我的」
-      DB.settings = normalizeSettings(parsed ? parsed.settings : null);
+var LS_KEY = LEGACY_LS_KEY;
+/** 'idb' = IndexedDB（默认）；'ls' = 降级到 localStorage（环境不支持 IndexedDB 时） */
+var STORAGE_MODE = 'idb';
+var noteDB = new NoteDB();
+/** image_id -> objectURL。Blob 不能直接塞进 CSS，需转成 URL 才能渲染 */
+var imageUrlCache = {};
+/** 图片仓库统计缓存（异步刷新，供「我的」同步读取） */
+var imageStatsCache = { count: 0, bytes: 0 };
+
+function idbSupported(){
+  try { return (typeof indexedDB !== 'undefined') && indexedDB !== null; } catch(e){ return false; }
+}
+
+/** 补齐记录字段：IndexedDB 以 id 为 keyPath，旧数据只有键没有 id 字段 */
+function applyDbShape(folders, records, events, settings){
+  if(folders) DB.folders = folders;
+  if(records) DB.records = records;
+  DB.events = events || [];
+  DB.settings = normalizeSettings(settings || null);
+  Object.keys(DB.records).forEach(function(k){
+    var r = DB.records[k];
+    r.id = k;
+    if(typeof r.priority !== 'number') r.priority = 0;
+    if(r.image_id === undefined) r.image_id = null;
+    if(r.image === undefined) r.image = null;
+  });
+}
+
+/** 把 IndexedDB 里的图片 Blob 转成可渲染的 objectURL，回填 record.image */
+async function hydrateRecordImage(rec){
+  if(!rec || !rec.image_id) return;
+  if(imageUrlCache[rec.image_id]){ rec.image = imageUrlCache[rec.image_id]; return; }
+  try{
+    var row = await noteDB.getImage(rec.image_id);
+    var blob = row && (row.blob_full || row.blob_thumb);
+    if(!blob) return;
+    var url = URL.createObjectURL(blob);
+    imageUrlCache[rec.image_id] = url;
+    rec.image = url;
+  }catch(e){ /* 单张图缺失不影响笔记本身 */ }
+}
+async function hydrateImages(){
+  var jobs = [];
+  Object.keys(DB.records).forEach(function(k){ jobs.push(hydrateRecordImage(DB.records[k])); });
+  await Promise.all(jobs);
+}
+
+/**
+ * 释放某张图片的 objectURL。
+ * 去重会让多条笔记共用同一张图，仍有引用时不能释放。
+ */
+function releaseImageUrl(imageId){
+  if(!imageId) return;
+  var stillUsed = Object.keys(DB.records).some(function(k){
+    return DB.records[k].image_id === imageId;
+  });
+  if(stillUsed) return;
+  var url = imageUrlCache[imageId];
+  if(url){
+    try { URL.revokeObjectURL(url); } catch(e){}
+    delete imageUrlCache[imageId];
+  }
+}
+
+/** 清理已无记录引用的 objectURL（换图 / 删图后的残留，避免内存缓慢增长） */
+function releaseUnusedImageUrls(){
+  var used = {};
+  Object.keys(DB.records).forEach(function(k){
+    var id = DB.records[k].image_id; if(id) used[id] = true;
+  });
+  Object.keys(imageUrlCache).forEach(function(imageId){
+    if(!used[imageId]){
+      try { URL.revokeObjectURL(imageUrlCache[imageId]); } catch(e){}
+      delete imageUrlCache[imageId];
     }
-  } catch(e){}
-})();
-function saveDB(){
+  });
+}
+
+async function refreshImageStats(){
+  if(STORAGE_MODE !== 'idb'){ imageStatsCache = { count: 0, bytes: 0 }; return; }
+  try { imageStatsCache = await noteDB.imageStats(); } catch(e){ imageStatsCache = { count: 0, bytes: 0 }; }
+}
+
+/* ---------- 读：IndexedDB ---------- */
+async function loadFromIdb(){
+  await noteDB.open();
+  var meta = await noteDB.getAllMeta();
+  var lightRows = await noteDB.listNotes();   // 列表行不含正文，先拿到全部 id
+  var records = {};
+  for(var i = 0; i < lightRows.length; i++){
+    var full = await noteDB.getNote(lightRows[i].id);  // 逐条按 id 精确取正文
+    if(full) records[full.id] = full;
+  }
+  applyDbShape(meta.folders, records, meta.events, meta.settings);
+  await hydrateImages();
+  await refreshImageStats();
+}
+
+/* ---------- 读：localStorage（降级 / 旧版本数据） ---------- */
+function loadFromLocalStorage(){
+  var raw = null;
+  try { raw = localStorage.getItem(LS_KEY); } catch(e){ return false; }
+  if(!raw) return false;
+  try{
+    var parsed = JSON.parse(raw);
+    if(!parsed || !parsed.records) return false;
+    applyDbShape(parsed.folders, parsed.records, parsed.events, parsed.settings);
+    return true;
+  }catch(e){ return false; }
+}
+
+/** IndexedDB 里是否已有数据（决定是否要迁移旧 localStorage 数据） */
+async function idbHasData(){
+  try{
+    var rows = await noteDB.listNotes();
+    return rows.length > 0;
+  }catch(e){ return false; }
+}
+
+/**
+ * 启动引导：优先 IndexedDB；环境不支持或库为空时读 localStorage。
+ * 注意：读不到任何数据时不报错，保留内置示例数据，App 仍可用。
+ */
+async function bootstrapStore(){
+  if(idbSupported()){
+    try{
+      await noteDB.open();
+      if(await idbHasData()){
+        await loadFromIdb();
+        STORAGE_MODE = 'idb';
+        return;
+      }
+      // 库为空但 localStorage 有旧数据 → 先载入，随后由 migrateLegacyData 写入 IndexedDB
+      if(loadFromLocalStorage()){
+        STORAGE_MODE = 'idb';
+        await hydrateImages();
+        return;
+      }
+      STORAGE_MODE = 'idb';
+      return;
+    }catch(e){ /* IndexedDB 打开失败，降级 */ }
+  }
+  STORAGE_MODE = 'ls';
+  loadFromLocalStorage();
+}
+
+/* ---------- 写 ---------- */
+function saveDBLegacy(){
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records, events:DB.events, settings:DB.settings}));
   } catch(e){
@@ -556,6 +689,37 @@ function saveDB(){
     if(isQuotaError(e)) openNoticeModal('保存失败', describeStorageError(e));
     else toast(describeStorageError(e));
   }
+}
+async function persistToIdb(){
+  try{
+    await noteDB.open();
+    var list = Object.keys(DB.records).map(function(k){ return DB.records[k]; });
+    await noteDB.putManyNotes(list, Date.now());
+    await noteDB.setMeta('folders', DB.folders);
+    await noteDB.setMeta('events', DB.events);
+    await noteDB.setMeta('settings', DB.settings);
+    // 删除操作分散在多处，统一按差集清理，避免内存删了库里还在
+    var rows = await noteDB.listNotes();
+    var alive = {};
+    list.forEach(function(r){ alive[r.id] = true; });
+    for(var i = 0; i < rows.length; i++){
+      if(!alive[rows[i].id]) await noteDB.deleteNote(rows[i].id);
+    }
+    await noteDB.relinkImages();
+    releaseUnusedImageUrls();
+    await refreshImageStats();
+  }catch(e){
+    if(isQuotaError(e)) openNoticeModal('保存失败', describeStorageError(e));
+    else toast('保存失败：' + ((e && e.message) || e));
+  }
+}
+/**
+ * 写盘入口。保持同步签名，所有既有调用点无需改动；
+ * 实际写 IndexedDB 是异步的（Issue-31 会在此加防抖与强制落盘）。
+ */
+function saveDB(){
+  if(STORAGE_MODE === 'idb') persistToIdb();
+  else saveDBLegacy();
 }
 
 /* ============ NAVIGATION ============ */
@@ -653,7 +817,7 @@ function renderMe(){
       '<div class="me-row" data-go-events><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><rect x="2.5" y="3.5" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1.5V4M11 1.5V4M2.5 6.5H13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="me-info"><div class="t-name">重要日子</div><div class="t-meta">'+DB.events.length+' 个已添加</div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
       '<div class="me-row" data-export><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><path d="M8 2V10M4.5 6.5L8 10L11.5 6.5M2.5 13.5H13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">导出数据</div><div class="t-meta">备份到本地文件</div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
       '<div class="me-row" data-export-dir><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><path d="M2 4.5C2 3.7 2.7 3 3.5 3H6L7.5 4.8H12.5C13.3 4.8 14 5.5 14 6.3V11.5C14 12.3 13.3 13 12.5 13H3.5C2.7 13 2 12.3 2 11.5V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">导出文件夹</div><div class="t-meta">'+(exportDirLabel?('已设为：'+exportDirLabel):'系统「下载」目录 · 点击更改')+'</div></div>'+(exportDirLabel?'<span class="me-action" data-export-dir-clear style="color:var(--danger)">恢复默认</span>':'<span class="me-action">选择</span>')+'</div>'+
-      '<div class="me-row" data-optimize><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><path d="M2 4.5C2 3.7 2.7 3 3.5 3H6L7.5 4.8H12.5C13.3 4.8 14 5.5 14 6.3V11.5C14 12.3 13.3 13 12.5 13H3.5C2.7 13 2 12.3 2 11.5V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 8.5L7 10L10.5 6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">优化存储</div><div class="t-meta">图片已占 '+formatBytes(sumImageBytes(DB.records))+' · 点击压缩大图</div></div><span class="me-action">优化</span></div>'+
+      '<div class="me-row" data-optimize><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><path d="M2 4.5C2 3.7 2.7 3 3.5 3H6L7.5 4.8H12.5C13.3 4.8 14 5.5 14 6.3V11.5C14 12.3 13.3 13 12.5 13H3.5C2.7 13 2 12.3 2 11.5V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 8.5L7 10L10.5 6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">优化存储</div><div class="t-meta">'+imageStatsCache.count+' 张图片 · 已占 '+formatBytes(imageStatsCache.bytes)+' · 点击清理无用图片</div></div><span class="me-action">优化</span></div>'+
     '</div>'+
     '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">界面风格</div><div class="style-chips">' + STYLE_LIST.map(function(st){ return '<div class="style-chip '+(st===s.style?'active':'')+'" data-style-opt="'+st+'">'+(getStyleLabel(st))+'</div>'; }).join('') + '</div></div>'+
     '<div class="me-card">'+
@@ -661,29 +825,26 @@ function renderMe(){
     '</div>'+
     '<div class="t-meta me-foot">工作计划与复盘 · 本地优先 · 数据不上云</div>';
 }
-/* 优化存储：把超过阈值的记录图片重新压缩，释放 localStorage 配额 */
-function optimizeStorage(){
-  var lg=countLargeImages(DB.records, RECORD_IMAGE_LIMITS.compressAboveBytes);
-  if(!lg.count){ toast('图片已较精简，无需优化'); return; }
-  openConfirmModal('优化存储', '将对 '+lg.count+' 张较大图片（共 '+formatBytes(lg.totalBytes)+'）重新压缩以释放空间，是否继续？', function(ok){
-    if(!ok) return;
-    var keys=Object.keys(DB.records).filter(function(k){ return shouldCompressImage(DB.records[k].image, RECORD_IMAGE_LIMITS.compressAboveBytes); });
-    var done=0, saved=0;
-    keys.forEach(function(k){
-      var r=DB.records[k]; var before=estimateDataUrlBytes(r.image); var src=r.image;
-      var img=new Image();
-      img.onload=function(){
-        var sz=computeResize(img.naturalWidth, img.naturalHeight, RECORD_IMAGE_LIMITS.maxDim);
-        var cv=document.createElement('canvas'); cv.width=sz.width; cv.height=sz.height;
-        var ctx=cv.getContext('2d'); if(ctx) ctx.drawImage(img,0,0,sz.width,sz.height);
-        var out=cv.toDataURL('image/jpeg', RECORD_IMAGE_LIMITS.quality);
-        r.image=out; saved+=(before-estimateDataUrlBytes(out));
-        if(++done===keys.length){ saveDB(); renderMe(); playSound('success'); toast('已优化 '+keys.length+' 张图片，释放约 '+formatBytes(Math.max(0,saved))); }
-      };
-      img.onerror=function(){ if(++done===keys.length){ saveDB(); renderMe(); } };
-      img.src=src;
-    });
-  });
+/**
+ * 优化存储：清理不再被任何笔记引用的图片（换图、删笔记后的残留）。
+ * 图片在入库时已压缩为 WebP，无需再二次压缩，真正的浪费来自孤儿 Blob。
+ */
+async function optimizeStorage(){
+  if(STORAGE_MODE !== 'idb'){ toast('当前为兼容存储模式，无需清理'); return; }
+  try{
+    var before = await noteDB.imageStats();
+    var removed = await noteDB.cleanupOrphanImages();
+    await refreshImageStats();
+    renderMe();
+    if(removed){
+      playSound('success');
+      toast('已清理 '+removed+' 张无用图片，释放约 '+formatBytes(Math.max(0, before.bytes - imageStatsCache.bytes)));
+    } else {
+      toast('没有可清理的图片，存储已是最优');
+    }
+  }catch(e){
+    toast('清理失败：'+((e&&e.message)||'未知原因'));
+  }
 }
 function onThemeToggle(){
   var s = DB.settings; s.theme = normalizeTheme(s.theme)==='dark' ? 'light' : 'dark';
@@ -1091,8 +1252,41 @@ async function writeToExportDir(fileName, blob){
   await w.close();
 }
 
+function blobToDataUrl(blob){
+  return new Promise(function(resolve, reject){
+    var rd=new FileReader();
+    rd.onload=function(ev){ resolve(ev.target.result); };
+    rd.onerror=function(){ reject(rd.error||new Error('读取失败')); };
+    rd.readAsDataURL(blob);
+  });
+}
+/**
+ * 导出用的记录副本：
+ *  - 剔除运行时的 blob URL（换台设备就失效，导出它没有任何意义）
+ *  - 把图片 Blob 内联带走，保证备份能还原照片
+ * 说明：内联只发生在导出文件里，不写回数据库，不违反「图片禁止 Base64 入库」。
+ */
+async function buildExportRecords(){
+  var out={};
+  var keys=Object.keys(DB.records);
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i];
+    var rec=clone(DB.records[k]);
+    delete rec.image;
+    if(rec.image_id && STORAGE_MODE==='idb'){
+      try{
+        var row=await noteDB.getImage(rec.image_id);
+        var blob=row&&(row.blob_full||row.blob_thumb);
+        if(blob) rec.image_base64=await blobToDataUrl(blob);
+      }catch(e){ /* 单张图缺失不阻断整体导出 */ }
+    }
+    out[k]=rec;
+  }
+  return out;
+}
+
 async function exportData(){
-  var payload = { exportedAt:new Date().toISOString(), folders:DB.folders, records:DB.records, events:DB.events };
+  var payload = { exportedAt:new Date().toISOString(), folders:DB.folders, records:await buildExportRecords(), events:DB.events };
   var fileName = buildExportFilename('工作计划与复盘-导出', getTodayStr(), 'json');
   var blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   var savedDir = null, failed = false;
@@ -1371,8 +1565,8 @@ function saveEditor(){
   var bEl=document.getElementById(editing.type+'Body'); if(bEl) d.body=bEl.textContent;
   if(!d.title) d.title=(editing.type==='plan'?'未命名计划':'未命名复盘');
   var isNew=editing.isNew;
-  if(isNew){ var nid='r'+Date.now(); d.folderId=editing.folderId; DB.records[nid]=clone(d); editing.id=nid; editing.isNew=false; }
-  else { DB.records[editing.id]=clone(d); }
+  if(isNew){ var nid='r'+Date.now(); d.folderId=editing.folderId; d.id=nid; DB.records[nid]=clone(d); editing.id=nid; editing.data.id=nid; editing.isNew=false; }
+  else { d.id=editing.id; DB.records[editing.id]=clone(d); }
   saveDB();
   /* 保存后重新登记所有已保存记录的提醒（含本条），避免仅前台 setTimeout 在重启后丢失 */
   clearTimerList(previewTimers);
@@ -1446,16 +1640,35 @@ var currentImgTarget=null;
 document.getElementById('imgFile').addEventListener('change', function(){
   var file=this.files&&this.files[0]; if(!file) return;
   this.value='';
-  // 关键：记录内图片也先压缩再存储，避免原图 dataURL 撑爆 localStorage 配额
-  compressImageFile(file, RECORD_IMAGE_LIMITS.maxDim, RECORD_IMAGE_LIMITS.quality).then(function(dataUrl){
-    if(editing){ editing.data.image=dataUrl; }
-    var el=document.getElementById(currentImgTarget||'');
-    if(el){ el.style.backgroundImage='url('+dataUrl+')'; el.classList.add('has-img'); el.textContent=''; }
-    playSound('pop');
-  }).catch(function(e){
+  handleImagePick(file).catch(function(e){
     toast('图片插入失败：'+((e&&e.message)||'未知原因'));
   });
 });
+/**
+ * 选图入库（新管线）：
+ *   WebP 压缩 → SHA-256 去重 → Blob 存 IndexedDB → 转 objectURL 供渲染
+ * 图片不再以 Base64 dataURL 混在业务数据里（体积 +33%，且整块进内存）。
+ */
+async function handleImagePick(file){
+  if(!editing) return;
+  var noteId = editing.id || editing.data.id || null;
+  var res = await noteDB.saveImage(noteId, file);
+  editing.data.image_id = res.imageId;
+  var row = await noteDB.getImage(res.imageId);
+  var blob = row && (row.blob_full || row.blob_thumb);
+  if(blob){
+    var url = URL.createObjectURL(blob);
+    imageUrlCache[res.imageId] = url;
+    editing.data.image = url;
+  }
+  var el=document.getElementById(currentImgTarget||'');
+  if(el && editing.data.image){ el.style.backgroundImage='url('+editing.data.image+')'; el.classList.add('has-img'); el.textContent=''; }
+  playSound('pop');
+  saveDB();
+  toast(res.deduped
+    ? '这张图已存过，已复用（不额外占用空间）'
+    : ('已压缩保存 · ' + formatBytes(res.bytes)));
+}
 /**
  * 读取图片并压缩：按最大边长等比缩放后转 JPEG data URL。
  * 原图直接转 dataURL 可达数 MB，远超 localStorage 配额（约 5MB），
@@ -1518,7 +1731,14 @@ document.getElementById('lightbox').addEventListener('click', function(e){ if(e.
 document.getElementById('lbZoomIn').addEventListener('click', function(){ lbZoomBy(IMAGE_VIEWER_LIMITS.step); });
 document.getElementById('lbZoomOut').addEventListener('click', function(){ lbZoomBy(-IMAGE_VIEWER_LIMITS.step); });
 document.getElementById('lbReplace').addEventListener('click', function(){ if(lightboxType){ currentImgTarget=lightboxType+'Img'; document.getElementById('imgFile').click(); } closeLightbox(); });
-document.getElementById('lbDel').addEventListener('click', function(){ if(lightboxType && editing){ editing.data.image=null; var el=document.getElementById(lightboxType+'Img'); if(el){ el.style.backgroundImage=''; el.classList.remove('has-img'); el.textContent='点击插入图片'; } } closeLightbox(); });
+document.getElementById('lbDel').addEventListener('click', function(){
+  if(lightboxType && editing){
+    editing.data.image_id=null; editing.data.image=null;
+    var el=document.getElementById(lightboxType+'Img'); if(el){ el.style.backgroundImage=''; el.classList.remove('has-img'); el.textContent='点击插入图片'; }
+    saveDB();
+  }
+  closeLightbox();
+});
 /* 滚轮缩放（桌面） */
 var lbStage=document.getElementById('lightboxStage');
 lbStage.addEventListener('wheel', function(e){ e.preventDefault(); lbZoomBy(e.deltaY<0 ? IMAGE_VIEWER_LIMITS.step/2 : -IMAGE_VIEWER_LIMITS.step/2); }, { passive:false });
@@ -1588,13 +1808,20 @@ document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
 });
 
 /* ============ INIT ============ */
-loadSettings();
-renderHome(); renderCalendar(); renderStats();
-maybeAutoShowQuote();
 /* 恢复上次选择的导出文件夹（句柄持久化在 IndexedDB） */
 loadExportDirHandle().then(function(h){ if(h){ exportDirHandle=h; exportDirLabel=h.name||'所选文件夹'; } });
-/* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
-armAllReminders();
+/* 先等 IndexedDB 数据载入再渲染，否则会先闪一帧内置示例数据 */
+bootstrapStore().then(function(){
+  loadSettings();
+  renderHome(); renderCalendar(); renderStats();
+  maybeAutoShowQuote();
+  /* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
+  armAllReminders();
+}).catch(function(e){
+  // 存储层异常不应让 App 白屏：用内存中的（示例/降级）数据继续启动
+  loadSettings();
+  renderHome(); renderCalendar(); renderStats();
+});
 </script>
 </body>
 </html>

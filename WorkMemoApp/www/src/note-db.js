@@ -363,6 +363,40 @@ export class NoteDB {
   }
 
   /**
+   * 批量修正图片归属。
+   * 场景：新建笔记时先选图、后保存 —— 此刻图片已入库但 note_id 还是 null，
+   * 需在笔记落库后按 image_id 回填归属，否则会被当成孤儿清理掉。
+   */
+  async relinkImages() {
+    await this.open();
+    var notes = await this.listNotes();
+    var owner = {};
+    notes.forEach(function (n) { if (n.image_id) owner[n.image_id] = n.id; });
+    var images = (await wrap(this.store(STORES.images, 'readonly').getAll())) || [];
+    var stale = images.filter(function (img) { return img.note_id !== owner[img.id]; });
+    if (!stale.length) return 0;
+    return new Promise((resolve, reject) => {
+      var tx = this.db.transaction(STORES.images, 'readwrite');
+      var store = tx.objectStore(STORES.images);
+      stale.forEach(function (img) {
+        // 去重复用的图片可能仍归原笔记所有，无新归属时保持不动
+        if (owner[img.id]) img.note_id = owner[img.id];
+        store.put(img);
+      });
+      done(tx).then(() => resolve(stale.length)).catch(reject);
+    });
+  }
+
+  /** 图片仓库统计：张数与占用字节（供「我的」展示） */
+  async imageStats() {
+    await this.open();
+    var rows = (await wrap(this.store(STORES.images, 'readonly').getAll())) || [];
+    var bytes = 0;
+    rows.forEach(function (r) { bytes += (r.bytes || 0); });
+    return { count: rows.length, bytes: bytes };
+  }
+
+  /**
    * 清理孤儿图片：note_id 指向的笔记已不存在。
    * （跨笔记去重会复用图片记录，删掉持有者后可能残留，需定期清理）
    */

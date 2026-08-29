@@ -96,24 +96,30 @@ test('import 列表已引入存储优化纯函数', () => {
   assert.match(html, /shouldCompressImage/, '应导入压缩判定');
 });
 
-test('记录图片在插入时即压缩，不再存原始 dataURL', () => {
+// 注意：以下三例已被 Issue-30 的架构升级覆盖（详见 tests/issue-30-idb-wiring.test.js）。
+// Issue-27 的做法是「dataURL 入库时压缩」；Issue-30 之后图片以 WebP Blob 存 IndexedDB，
+// 根本不再进入业务数据，因此这里改为断言新机制，旧断言不再适用。
+test('记录图片以 WebP Blob 入库，不再以 dataURL 进入业务数据', () => {
   // 旧实现：直接 readAsDataURL 后塞进 editing.data.image（原始体积）
   assert.ok(!html.includes("rd.readAsDataURL(file); this.value='';"), '不应再直接读原图塞入');
-  // 新实现：走压缩
-  assert.match(html, /compressImageFile\(file, RECORD_IMAGE_LIMITS\.maxDim, RECORD_IMAGE_LIMITS\.quality\)/, 'imgFile 应压缩后存储');
-  assert.match(html, /editing\.data\.image=dataUrl/, '压缩结果写入记录');
+  // 新实现：走压缩 + 去重管线，记录上只留 image_id 外键
+  assert.match(html, /await noteDB\.saveImage\(noteId, file\)/, 'imgFile 应走压缩去重管线');
+  assert.match(html, /editing\.data\.image_id = res\.imageId;/, '记录只保存图片外键');
+  const pick = html.slice(html.indexOf('async function handleImagePick'), html.indexOf('function compressImageFile'));
+  assert.doesNotMatch(pick, /editing\.data\.image=dataUrl/, '不得再把 Base64 写进记录');
 });
 
 test('「我的」展示图片占用并提供优化入口', () => {
   assert.match(html, /data-optimize/, '应存在优化存储入口');
-  assert.match(html, /sumImageBytes\(DB\.records\)/, '应展示图片已占空间');
-  assert.match(html, /formatBytes\(sumImageBytes\(DB\.records\)\)/, '用量应以可读单位展示');
+  // 图片已不是 dataURL，占用需从 IndexedDB 的 Blob 统计
+  assert.match(html, /imageStatsCache\.bytes/, '应展示图片已占空间');
+  assert.match(html, /formatBytes\(imageStatsCache\.bytes\)/, '用量应以可读单位展示');
 });
 
-test('optimizeStorage 重新压缩超过阈值的图片并释放空间', () => {
-  assert.match(html, /function optimizeStorage\(\)/, '应存在优化函数');
-  assert.match(html, /countLargeImages\(DB\.records, RECORD_IMAGE_LIMITS\.compressAboveBytes\)/, '先统计需要优化的图片');
-  assert.match(html, /shouldCompressImage\(DB\.records\[k\]\.image, RECORD_IMAGE_LIMITS\.compressAboveBytes\)/, '逐张判断是否需压缩');
-  assert.match(html, /toDataURL\('image\/jpeg', RECORD_IMAGE_LIMITS\.quality\)/, '重新压缩为 JPEG');
-  assert.match(html, /点击压缩大图/, '入口文案提示可压缩大图');
+test('optimizeStorage 清理孤儿图片（图片入库即压缩，无需二次压缩）', () => {
+  assert.match(html, /async function optimizeStorage\(\)/, '应存在优化函数');
+  assert.match(html, /await noteDB\.imageStats\(\)/, '先统计当前图片占用');
+  assert.match(html, /cleanupOrphanImages\(\)/, '清理不再被引用的图片');
+  const opt = html.slice(html.indexOf('async function optimizeStorage'), html.indexOf('async function optimizeStorage') + 900);
+  assert.doesNotMatch(opt, /toDataURL\('image\/jpeg'/, '不再做二次 dataURL 压缩');
 });
