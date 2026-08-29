@@ -1447,10 +1447,10 @@ document.getElementById('app').addEventListener('click', function(e){
   var opt=e.target.closest('[data-optimize]'); if(opt){ optimizeStorage(); return; }
   // me: style option
   var sopt=e.target.closest('[data-style-opt]'); if(sopt){ onStylePick(sopt.getAttribute('data-style-opt')); return; }
+  // me: clear background（须先于 data-bg-upload 判断，因为清除按钮在行内）
+  var bc=e.target.closest('[data-bg-clear]'); if(bc){ onBgClear(); return; }
   // me: background upload
   var bu=e.target.closest('[data-bg-upload]'); if(bu){ document.getElementById('bgFile').click(); return; }
-  // me: clear background
-  var bc=e.target.closest('[data-bg-clear]'); if(bc){ onBgClear(); return; }
   // selection bar: cancel
   var sc=e.target.closest('#selCancel'); if(sc){ exitSelectionMode(); return; }
   // selection bar: delete
