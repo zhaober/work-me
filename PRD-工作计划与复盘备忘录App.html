@@ -69,7 +69,7 @@
     <span class="pill-tag">PRODUCT REQUIREMENTS DOCUMENT</span>
     <h1>工作计划与复盘备忘录 App</h1>
     <div class="meta">
-      <span>版本：v1.3（本地版 · 体验增强与稳定性）</span>
+      <span>版本：v1.4（本地版 · 存储架构重构）</span>
       <span>日期：2026-08-28</span>
       <span>状态：已实现并交付 Android Debug APK；新增音效/优先级/侧边栏/我的（主题·风格）</span>
       <span>平台：移动端 Android（基准 360×800）</span>
@@ -105,7 +105,7 @@
   </div>
   <ul>
     <li><b>平台</b>：移动端 Android，基准设计尺寸 360×800；</li>
-    <li><b>数据</b>：本地存储（localStorage，见 §7），不依赖服务端；</li>
+    <li><b>数据</b>：本地存储（<b>v1.4 起为 IndexedDB</b>，见 §7），不依赖服务端；</li>
     <li><b>不在本版范围</b>：云端实时同步、多端协同、账号体系、团队协作、AI 自动生成内容；</li>
     <li><b>已重新纳入</b>：「我的」个人中心、侧边栏导航；<b>已删除/暂缓</b>：云同步/多设备。</li>
   </ul>
@@ -171,7 +171,12 @@
       <tr><td>F-22</td><td>背景压缩与存储错误提示</td><td>背景上传即压缩（最长边 1280 / JPEG 0.72）；区分配额已满与手机存储不足</td><td><span class="badge b-p1">P1</span></td><td><span class="badge b-done">已实现（v1.3）</span></td></tr>
       <tr><td>F-23</td><td>多级提醒闹钟</td><td>12306 式：提前 3h 起每 30min、最晚提前 5min、到点提醒；系统通知+震动+音效；启动/保存后重排</td><td><span class="badge b-p1">P1</span></td><td><span class="badge b-done">已实现（v1.3）</span></td></tr>
       <tr><td>F-24</td><td>图片查看缩放</td><td>Lightbox 放大/缩小/平移：滚轮、双击 1x↔2x、双指捏合 + 单指拖动，带倍率读数</td><td><span class="badge b-p1">P1</span></td><td><span class="badge b-done">已实现（v1.3）</span></td></tr>
-      <tr><td>F-25</td><td>存储占用优化</td><td>记录图片插入即压缩（最长边 1600 / JPEG 0.82）；「我的」展示图片占用并提供一键优化存储</td><td><span class="badge b-p1">P1</span></td><td><span class="badge b-done">已实现（v1.3）</span></td></tr>
+      <tr><td>F-25</td><td>存储占用优化</td><td>记录图片插入即压缩（最长边 1600 / JPEG 0.82）；「我的」展示图片占用并提供一键优化存储</td><td><span class="badge b-p1">P1</span></td><td><span class="badge b-done">已实现（v1.3；v1.4 由 F-26~F-30 取代）</span></td></tr>
+      <tr><td>F-26</td><td>IndexedDB 存储内核</td><td>业务数据全部迁至 IndexedDB；正文经 lz-string 压成 Uint8Array 存 content_compressed，标签等小字段走 TextEncoder 存 style_data</td><td><span class="badge b-p0">P0</span></td><td><span class="badge b-done">已实现（v1.4）</span></td></tr>
+      <tr><td>F-27</td><td>正文与元数据分表</td><td>notes 存可索引元数据，note_contents 单独存压缩正文。IndexedDB 游标一次取整行，只有分表才能真正做到「列表查询不加载正文」</td><td><span class="badge b-p0">P0</span></td><td><span class="badge b-done">已实现（v1.4）</span></td></tr>
+      <tr><td>F-28</td><td>图片 WebP Blob 直存 + 去重</td><td>图片不再转 Base64（体积 +33% 且占内存），改为 WebP Blob 直存 note_images：大图长边 1080 / q0.75，缩略图 200×200 / q0.65，入库前按 SHA-256 全局去重，重复图复用旧 id</td><td><span class="badge b-p0">P0</span></td><td><span class="badge b-done">已实现（v1.4）</span></td></tr>
+      <tr><td>F-29</td><td>防抖落盘与强制保存</td><td>输入停止 3000ms 写盘（每次输入重置定时器）；切后台 / 关页面（visibilitychange + pagehide + beforeunload）立即强制落盘；编辑已有记录自动存草稿</td><td><span class="badge b-p0">P0</span></td><td><span class="badge b-done">已实现（v1.4）</span></td></tr>
+      <tr><td>F-30</td><td>旧数据迁移</td><td>localStorage 旧数据一次性迁入 IndexedDB，旧 Base64 图片转 Blob 走新管线（压缩 + 去重）；靠 meta 标记保证幂等，迁移后保留旧副本作回滚保险</td><td><span class="badge b-p0">P0</span></td><td><span class="badge b-done">已实现（v1.4）</span></td></tr>
     </tbody>
   </table>
 
@@ -259,6 +264,40 @@
   <p>「我的 → 背景」上传图片即等比压缩（最长边 1280 / JPEG 0.72）后以 dataURL 存入 <code>settings.bgImage</code>，与 UI 风格联动（液态玻璃/景深下更显著），可一键恢复默认；配额满时按 <code>QuotaExceededError</code> 准确提示。</p>
 
   <h2>7. 数据结构（本地）</h2>
+
+  <h3>7.1 IndexedDB 表结构（v1.4）</h3>
+  <p>库名 <code>work-memo-idb</code>，版本 1，共 4 个对象仓库：</p>
+  <div class="arch">notes（主表，keyPath: id）
+  { id, type, folderId, title, date, time, reminder, priority,
+    image_id, update_time }
+  索引：by_update(update_time) / by_folder(folderId) / by_date(date)
+  —— 列表页只扫这张表，不含正文
+
+note_contents（正文表，keyPath: id）
+  { id, content_compressed: Uint8Array, style_data: Uint8Array }
+  —— content_compressed = LZString.compressToUint8Array(JSON({body, checklist}))
+  —— style_data         = TextEncoder(JSON({tags}))   // 小字段，不压缩
+  —— 分表原因：IndexedDB 游标一次取整行，同表无法做到「列表不加载正文」
+
+note_images（图片表，keyPath: id）
+  { id, note_id, hash_sha, blob_full: Blob, blob_thumb: Blob,
+    w, h, bytes, created }
+  索引：by_hash(hash_sha, unique) / by_note(note_id)
+  —— Blob 直存，不做 Base64（体积 +33% 且整块进内存）
+
+meta（键值表，keyPath: k）
+  { k, v }  —— folders / events / settings / migratedFrom</div>
+  <p>图片入库管线（<code>compressImage</code>）：</p>
+  <ol>
+    <li><code>createImageBitmap</code> 解码（不可用回落 <code>Image</code>）；</li>
+    <li>大图：长边缩放到 1080，<code>canvas.toBlob('image/webp', 0.75)</code>；</li>
+    <li>缩略图：200×200 居中裁剪，<code>toBlob('image/webp', 0.65)</code>；</li>
+    <li><code>crypto.subtle.digest('SHA-256')</code> 计算哈希 → 查 <code>by_hash</code> 唯一索引 → 命中则<b>复用旧 id、放弃本次 Blob 存储</b>；</li>
+    <li>WebP 不支持时回落 JPEG（避免浏览器静默降级成 PNG 反而更大）；<code>crypto.subtle</code> 不可用（非安全上下文）时回落 FNV 指纹，去重不中断。</li>
+  </ol>
+  <p>运行时以内存中的 <code>DB</code> 为唯一渲染源；图片 Blob 渲染前转 <code>URL.createObjectURL</code>，带缓存与释放（<code>releaseUnusedImageUrls</code>）。</p>
+
+  <h3>7.2 业务对象（内存 / 代码视图）</h3>
   <div class="arch">Folder { id, name, parentId, color, createdAt }
 Record {
   id, type: 'plan' | 'review',
@@ -282,11 +321,23 @@ Settings {                                                // v1.2 个性化；v1
 }
 // 导出目录句柄持久化于 IndexedDB（非 settings），运行时恢复</div>
 
+  <blockquote><b>存储约束（v1.4 已根本性改善）</b>：
+  <ul>
+    <li><b>配额</b>：v1.4 起业务数据存 IndexedDB，不再受 localStorage 约 5MB 配额限制。</li>
+    <li><b>正文</b>：经 lz-string 压缩为 <code>Uint8Array</code>，重复中文实测压缩到约 5%，且列表查询不加载正文。</li>
+    <li><b>图片</b>：WebP Blob 直存 + SHA-256 全局去重，同图反复插入只占一份空间；<b>严禁 <code>toDataURL</code> 产出存储用图</b>（<code>toDataURL</code> 仅用于 1×1 画布的 WebP 格式探测）。自定义背景仍为压缩后的 dataURL（<code>settings.bgImage</code>，最长边 1280 / JPEG 0.72）。</li>
+    <li><b>写入</b>：防抖 3000ms + 切后台强制落盘；编辑已有记录自动存草稿。<b>新建记录不自动入库</b>，返回键 = 放弃未保存改动。</li>
+    <li><b>删除</b>：删笔记先删关联图片再删记录；写盘时按差集清理内存中已删除的记录，避免幽灵数据；提供 <code>cleanupOrphanImages</code> 清理孤儿 Blob。</li>
+    <li><b>空间释放（Web 局限）</b>：IndexedDB 删除记录后不会自动归还磁盘空间，浏览器按源整体管理，代码层面无法强制收缩；可在开发者工具中清除站点数据。因图片已压缩到最小，实际影响有限。</li>
+    <li><b>降级</b>：IndexedDB 不可用时自动降级 localStorage，App 不白屏。</li>
+  </ul></blockquote>
+
   <h2>8. 非功能需求</h2>
   <ul>
     <li><b>性能</b>：冷启动 &lt; 1s；列表 60fps；液态玻璃 <code>backdrop-filter</code> 低端机需降级评估。</li>
     <li><b>兼容</b>：Android 9+，主流机型自适应（以 360×800 为基准）。</li>
-    <li><b>存储</b>：本地存储；v1.3 起图片/背景入库即压缩，并支持「一键优化存储」；单用户建议上限 200MB。</li>
+    <li><b>存储</b>：v1.4 起业务数据存 <b>IndexedDB</b>（正文 lz-string 压缩、图片 WebP Blob + SHA-256 去重），localStorage 仅作降级通道；单用户建议上限 200MB。</li>
+    <li><b>可测试性</b>：核心逻辑抽为纯函数模块，<code>npm test</code>（Node Test Runner）一键跑全量回归，含 IndexedDB 集成测试。</li>
     <li><b>可访问性</b>：对比度满足 WCAG AA；点击区 ≥ 44px；深色主题需校准对比度。</li>
     <li><b>一致性</b>：弹窗用自定义 Modal / Action Sheet，禁止系统 prompt/confirm；音效统一可关。</li>
   </ul>
@@ -296,7 +347,7 @@ Settings {                                                // v1.2 个性化；v1
     <thead><tr><th>里程碑</th><th>内容</th><th>状态</th></tr></thead>
     <tbody>
       <tr><td>M1</td><td>设计稿 + 可交互原型（7 屏 → 现 6 屏）</td><td>已完成</td></tr>
-      <tr><td>M2</td><td>本地数据持久化（localStorage）</td><td>已完成</td></tr>
+      <tr><td>M2</td><td>本地数据持久化（v1.4 起迁移至 IndexedDB，localStorage 仅作降级）</td><td>已完成</td></tr>
       <tr><td>M3</td><td>搜索 / 提醒 / 标签完整实现</td><td>已完成</td></tr>
       <tr><td>M4</td><td>导出能力（JSON）</td><td>已完成</td></tr>
       <tr><td>M5</td><td>删除 / 选择性删除 / 一键清空</td><td>已完成</td></tr>
@@ -305,6 +356,7 @@ Settings {                                                // v1.2 个性化；v1
       <tr><td>M8</td><td>交互音效 + 计划优先级 + 日历节气/节日/重要日子</td><td>已完成</td></tr>
       <tr><td>M9</td><td>侧边栏 + 「我的」+ 浅/深主题 + 背景 + 导出目录 + 存储优化</td><td>已完成</td></tr>
       <tr><td>M10</td><td>UI 风格（液态玻璃/极简/景深）多套切换</td><td>规划中</td></tr>
+      <tr><td>M11</td><td>存储架构重构：IndexedDB + 正文压缩 + 图片 WebP 去重 + 防抖落盘 + 旧数据迁移</td><td>已完成（v1.4）</td></tr>
     </tbody>
   </table>
 
@@ -312,13 +364,16 @@ Settings {                                                // v1.2 个性化；v1
   <ul>
     <li><b>提醒可靠性（已改善）</b>：v1.3 升级为多级系统通知 + 震动 + 音效，启动/保存后自动重排，后台/重启后再次运行可触达；但 App 进程被系统完全杀掉且无原生插件时不弹原生通知，需 Capacitor LocalNotifications（后续增强）。</li>
     <li><b>云同步</b>：本地版不含，多设备需补账号体系（F-13）。</li>
-    <li><b>存储容量（已缓解）</b>：localStorage ~5MB 仍为硬约束；v1.3 落地图片入库压缩 + 一键优化存储后已显著延缓爆配额，量大时建议迁 IndexedDB/SQLite。</li>
+    <li><b>存储容量（v1.4 已解除硬约束）</b>：业务数据迁至 IndexedDB 后不再受 localStorage ~5MB 配额限制。剩余风险：① IndexedDB 删除记录后不自动归还磁盘空间（按源整体管理，代码无法强制收缩，需手动清除站点数据）；② crypto.subtle 仅在 https / localhost 可用，file:// 下去重回落 FNV 指纹；③ 跨笔记去重复用图片时删除持有者会留下孤儿记录，由 cleanupOrphanImages 清理。</li>
+    <li><b>迁移风险</b>：localStorage → IndexedDB 为一次性迁移，靠 meta 标记保证幂等；迁移后保留 localStorage 副本作回滚保险，不主动删除。</li>
     <li><b>统计口径</b>："完成率"按勾选清单计算（已确认）。</li>
     <li><b>v1.2 新增</b>：深色主题逐屏校准；液态玻璃低端机降级；侧边栏与底部 Tab 路由同步；多风格以 CSS 变量隔离避免污染。</li>
   </ul>
 
   <footer class="doc">
-    本文档基于设计稿「工作计划与复盘备忘录App」及 2026-08-27 至 08-29 历次迭代（含 v1.3 体验与稳定性修复）整理。v1.3 相对 v1.2：导出告知位置并支持自定义目录（F-19/F-20）、重要日子/日期/提醒时间改用滚盘（F-21）、背景压缩与存储错误准确提示（F-22）、提醒升级为 12306 式多级系统通知（F-23）、图片查看缩放（F-24）、记录图片入库压缩与一键优化存储（F-25）。全量单元测试 168 例通过，已重新构建并发布 Debug APK。
+    本文档基于设计稿「工作计划与复盘备忘录App」及 2026-08-27 至 08-29 历次迭代（含 v1.3 体验与稳定性修复、v1.4 存储架构重构）整理。
+    <br><br>
+    <b>v1.4 相对 v1.3 的关键变更</b>：业务数据由 localStorage 迁至 IndexedDB（F-26）、正文与元数据分表以做到列表不加载正文（F-27）、图片改为 WebP Blob 直存并按 SHA-256 全局去重（F-28）、防抖 3000ms 与切后台强制落盘（F-29）、localStorage 旧数据一次性迁移（F-30）。全量单元测试 238 例通过（含 12 例 IndexedDB 集成测试），已重新构建并发布 Debug APK。
   </footer>
 </div>
 </body>
