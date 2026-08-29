@@ -5,7 +5,8 @@ import { getTodayStr, formatDateHeader, parseDate } from '../src/app-core.js';
 describe('Issue 01: 日期动态化与计划绑定日期', () => {
   it('getTodayStr 返回今天的日期字符串', () => {
     const today = getTodayStr();
-    const expected = new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     assert.strictEqual(today, expected);
     assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(today), '格式应为 YYYY-MM-DD');
   });
