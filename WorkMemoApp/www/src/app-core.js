@@ -683,9 +683,10 @@ export function buildReminderSchedule(targetMs, nowMs, plan){
 export const IDB_NAME = 'work-memo-idb';
 export const IDB_VERSION = 1;
 export const STORES = {
-  notes: 'notes',        // 主表：笔记
-  images: 'note_images', // 图片仓库（Blob）
-  meta: 'meta'           // 键值表：folders / events / settings
+  notes: 'notes',          // 主表：笔记元数据（可索引、供列表查询）
+  contents: 'note_contents', // 正文表：压缩正文，与元数据分表，列表查询不加载
+  images: 'note_images',   // 图片仓库（Blob）
+  meta: 'meta'             // 键值表：folders / events / settings
 };
 export const NOTE_INDEXES = ['by_update', 'by_folder', 'by_date'];
 /** localStorage 时代的旧键名，用于一次性迁移 */
@@ -823,4 +824,150 @@ export function noteRowBytes(row){
   if(row.style_data && row.style_data.byteLength) n += row.style_data.byteLength;
   if(typeof row.title === 'string') n += row.title.length * 3; // UTF-8 中文按 3 字节估算
   return n;
+}
+
+/**
+ * 笔记行拆分为「元数据行」与「正文行」。
+ * 分表的唯一目的：列表页只扫 notes 表，完全不触碰 content_compressed，
+ * 避免每次渲染列表都把全库正文反序列化进内存。
+ */
+export function splitNoteRow(row){
+  if(!row) return { meta: null, content: null };
+  var meta = {
+    id: row.id,
+    type: row.type,
+    folderId: row.folderId,
+    title: row.title,
+    date: row.date,
+    time: row.time,
+    reminder: row.reminder,
+    priority: row.priority,
+    image_id: row.image_id,
+    update_time: row.update_time
+  };
+  var content = {
+    id: row.id,
+    content_compressed: row.content_compressed || null,
+    style_data: row.style_data || null
+  };
+  return { meta: meta, content: content };
+}
+
+/** 元数据行 + 正文行 → 完整行（供 rowToRecord 使用） */
+export function mergeNoteRows(meta, content){
+  if(!meta) return null;
+  var row = {
+    id: meta.id,
+    type: meta.type,
+    folderId: meta.folderId,
+    title: meta.title,
+    date: meta.date,
+    time: meta.time,
+    reminder: meta.reminder,
+    priority: meta.priority,
+    image_id: meta.image_id,
+    update_time: meta.update_time,
+    content_compressed: (content && content.content_compressed) || null,
+    style_data: (content && content.style_data) || null
+  };
+  return row;
+}
+
+/* ============ 图片管线（WebP 压缩 + 缩略图 + 哈希去重） ============ */
+
+/** 图片压缩参数：大图长边 1080 / WebP 75%，缩略图 200×200 / WebP 65% */
+export const IMAGE_PIPELINE = {
+  fullMaxDim: 1080,
+  fullType: 'image/webp',
+  fullQuality: 0.75,
+  thumbSize: 200,
+  thumbType: 'image/webp',
+  thumbQuality: 0.65,
+  /** 不支持 WebP 时的回落格式 */
+  fallbackType: 'image/jpeg',
+  hashAlgo: 'SHA-256'
+};
+
+/**
+ * 缩略图居中裁剪区（源图坐标）：取短边为正方形边长，居中裁切。
+ * 只算源矩形；输出尺寸固定为 IMAGE_PIPELINE.thumbSize。
+ */
+export function computeThumbRect(w, h){
+  var sw = Number(w) || 0, sh = Number(h) || 0;
+  if(sw <= 0 || sh <= 0) return { sx: 0, sy: 0, sw: 0, sh: 0, side: 0 };
+  var side = Math.min(sw, sh);
+  return {
+    sx: Math.floor((sw - side) / 2),
+    sy: Math.floor((sh - side) / 2),
+    sw: side,
+    sh: side,
+    side: side
+  };
+}
+
+/** ArrayBuffer / Uint8Array → 十六进制字符串（哈希展示与索引） */
+export function toHex(buf){
+  if(!buf) return '';
+  var arr = (buf instanceof Uint8Array) ? buf : new Uint8Array(buf);
+  var s = '';
+  for(var i = 0; i < arr.length; i++){
+    var hex = arr[i].toString(16);
+    s += (hex.length < 2 ? '0' + hex : hex);
+  }
+  return s;
+}
+
+/**
+ * 非安全上下文（如 file:// 打开）下 crypto.subtle 不可用，
+ * 用 FNV-1a 32bit × 4 组不同偏移拼出 128bit 指纹兜底。
+ * 仅用于去重，不作安全用途。
+ */
+export function fallbackHashBytes(bytes){
+  var arr = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes || 0);
+  var out = [];
+  for(var k = 0; k < 4; k++){
+    var h = 0x811c9dc5 ^ (k * 0x9e3779b9);
+    for(var i = 0; i < arr.length; i++){
+      h ^= arr[i];
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    out.push((h >>> 24) & 0xff, (h >>> 16) & 0xff, (h >>> 8) & 0xff, h & 0xff);
+  }
+  return new Uint8Array(out);
+}
+
+/**
+ * 去重决策：命中已有哈希 → 复用旧记录、放弃本次 Blob 存储；
+ * 否则 → 新存一份。
+ */
+export function dedupeDecision(existing){
+  if(existing && existing.id){
+    return { action: 'reuse', imageId: existing.id, reason: 'hash_exists' };
+  }
+  return { action: 'store', imageId: null, reason: 'new_hash' };
+}
+
+/** 组装 note_images 行 */
+export function buildImageRow(info, noteId){
+  var i = info || {};
+  return {
+    id: i.id,
+    note_id: (noteId === undefined) ? (i.note_id || null) : noteId,
+    hash_sha: i.hash || '',
+    blob_full: i.fullBlob || null,
+    blob_thumb: i.thumbBlob || null,
+    w: i.width || 0,
+    h: i.height || 0,
+    bytes: (i.fullBlob && i.fullBlob.size ? i.fullBlob.size : 0)
+         + (i.thumbBlob && i.thumbBlob.size ? i.thumbBlob.size : 0),
+    created: i.created || Date.now()
+  };
+}
+
+/** 生成图片记录 id：时间戳 + 随机串，避免自增计数在多端冲突 */
+export function makeImageId(nowMs, rand){
+  var t = Number(nowMs);
+  if(!isFinite(t)) t = Date.now();
+  var r = (typeof rand === 'number') ? Math.floor(Math.abs(rand) * 1e6) : Math.floor(Math.random() * 1e6);
+  return 'img_' + t.toString(36) + '_' + r.toString(36);
 }
