@@ -17,11 +17,73 @@
     --green:#2BB673; --green-soft:#E8F8EF;
     --progress-track:#F0E2D6; --check-off:#C9CDD6; --body:#2A2D36;
     --danger:#E53935;
+    --app-font-scale:1;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
   body{font-family:"Inter","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,sans-serif;background:#E9EBF2;display:flex;justify-content:center;}
   .app{width:100%;max-width:480px;height:100%;background-color:var(--bg);background-image:var(--app-bg-image, none);background-size:cover;background-position:center;position:relative;overflow:hidden;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
+  .app.fs-small{--app-font-scale:0.875;}
+  .app.fs-normal{--app-font-scale:1;}
+  .app.fs-large{--app-font-scale:1.125;}
+  .app.fs-huge{--app-font-scale:1.25;}
+  .app[data-text-color="white"]{--text:#FFFFFF;--text-2:rgba(255,255,255,0.85);--text-3:rgba(255,255,255,0.65);--body:#FFFFFF;}
+  .app[data-text-color="black"]{--text:#000000;--text-2:rgba(0,0,0,0.8);--text-3:rgba(0,0,0,0.55);--body:#000000;}
+  .app.has-bg[data-text-color="auto"] .t-greet,
+  .app.has-bg[data-text-color="auto"] .t-date,
+  .app.has-bg[data-text-color="auto"] .t-section,
+  .app.has-bg[data-text-color="auto"] .t-title,
+  .app.has-bg[data-text-color="auto"] .t-name,
+  .app.has-bg[data-text-color="auto"] .t-rec-title,
+  .app.has-bg[data-text-color="auto"] .t-body,
+  .app.has-bg[data-text-color="auto"] .head .title,
+  .app.has-bg[data-text-color="auto"] .ov-big-plan,
+  .app.has-bg[data-text-color="auto"] .ov-big-review,
+  .app.has-bg[data-text-color="auto"] .newfolder,
+  .app.has-bg[data-text-color="white"] .t-greet,
+  .app.has-bg[data-text-color="white"] .t-date,
+  .app.has-bg[data-text-color="white"] .t-section,
+  .app.has-bg[data-text-color="white"] .t-title,
+  .app.has-bg[data-text-color="white"] .t-name,
+  .app.has-bg[data-text-color="white"] .t-rec-title,
+  .app.has-bg[data-text-color="white"] .t-body,
+  .app.has-bg[data-text-color="white"] .head .title,
+  .app.has-bg[data-text-color="white"] .ov-big-plan,
+  .app.has-bg[data-text-color="white"] .ov-big-review,
+  .app.has-bg[data-text-color="white"] .newfolder,
+  .app.has-bg[data-text-color="black"] .t-greet,
+  .app.has-bg[data-text-color="black"] .t-date,
+  .app.has-bg[data-text-color="black"] .t-section,
+  .app.has-bg[data-text-color="black"] .t-title,
+  .app.has-bg[data-text-color="black"] .t-name,
+  .app.has-bg[data-text-color="black"] .t-rec-title,
+  .app.has-bg[data-text-color="black"] .t-body,
+  .app.has-bg[data-text-color="black"] .head .title,
+  .app.has-bg[data-text-color="black"] .ov-big-plan,
+  .app.has-bg[data-text-color="black"] .ov-big-review,
+  .app.has-bg[data-text-color="black"] .newfolder{text-shadow:var(--text-shadow);}
+  .app.has-bg[data-text-color="white"] .t-greet,
+  .app.has-bg[data-text-color="white"] .t-date,
+  .app.has-bg[data-text-color="white"] .t-section,
+  .app.has-bg[data-text-color="white"] .t-title,
+  .app.has-bg[data-text-color="white"] .t-name,
+  .app.has-bg[data-text-color="white"] .t-rec-title,
+  .app.has-bg[data-text-color="white"] .t-body,
+  .app.has-bg[data-text-color="white"] .head .title,
+  .app.has-bg[data-text-color="white"] .ov-big-plan,
+  .app.has-bg[data-text-color="white"] .ov-big-review,
+  .app.has-bg[data-text-color="white"] .newfolder{text-shadow:0 1px 4px rgba(0,0,0,0.65);}
+  .app.has-bg[data-text-color="black"] .t-greet,
+  .app.has-bg[data-text-color="black"] .t-date,
+  .app.has-bg[data-text-color="black"] .t-section,
+  .app.has-bg[data-text-color="black"] .t-title,
+  .app.has-bg[data-text-color="black"] .t-name,
+  .app.has-bg[data-text-color="black"] .t-rec-title,
+  .app.has-bg[data-text-color="black"] .t-body,
+  .app.has-bg[data-text-color="black"] .head .title,
+  .app.has-bg[data-text-color="black"] .ov-big-plan,
+  .app.has-bg[data-text-color="black"] .ov-big-review,
+  .app.has-bg[data-text-color="black"] .newfolder{text-shadow:0 1px 3px rgba(255,255,255,0.75);}
   .screen{position:absolute;top:0;left:0;right:0;bottom:95px;overflow-y:auto;display:none;padding-top:env(safe-area-inset-top);}
   .screen.active{display:block;}
   .screen.editor{bottom:64px;}
@@ -32,17 +94,17 @@
   .row-between{display:flex;align-items:center;justify-content:space-between;}
   .row-center{display:flex;align-items:center;}
   .gap8{gap:8px;}.gap10{gap:10px;}.gap12{gap:12px;}
-  .t-greet{font-size:20px;font-weight:700;color:var(--text);}
-  .t-date{font-size:13px;font-weight:500;color:var(--text-2);}
-  .t-section{font-size:16px;font-weight:600;color:var(--text);}
-  .t-label{font-size:12px;font-weight:500;color:var(--text-2);}
-  .t-sub{font-size:12px;font-weight:400;color:var(--text-2);}
-  .t-body{font-size:15px;font-weight:400;color:var(--body);line-height:1.5;}
-  .t-title{font-size:22px;font-weight:700;color:var(--text);}
-  .t-meta{font-size:12px;font-weight:400;color:var(--text-2);}
-  .t-name{font-size:14px;font-weight:600;color:var(--text);}
-  .t-rec-title{font-size:14px;font-weight:500;color:var(--text);}
-  .t-path{font-size:13px;font-weight:400;color:var(--text-2);}
+  .t-greet{font-size:calc(20px * var(--app-font-scale));font-weight:700;color:var(--text);}
+  .t-date{font-size:calc(13px * var(--app-font-scale));font-weight:500;color:var(--text-2);}
+  .t-section{font-size:calc(16px * var(--app-font-scale));font-weight:600;color:var(--text);}
+  .t-label{font-size:calc(12px * var(--app-font-scale));font-weight:500;color:var(--text-2);}
+  .t-sub{font-size:calc(12px * var(--app-font-scale));font-weight:400;color:var(--text-2);}
+  .t-body{font-size:calc(15px * var(--app-font-scale));font-weight:400;color:var(--body);line-height:1.5;}
+  .t-title{font-size:calc(22px * var(--app-font-scale));font-weight:700;color:var(--text);}
+  .t-meta{font-size:calc(12px * var(--app-font-scale));font-weight:400;color:var(--text-2);}
+  .t-name{font-size:calc(14px * var(--app-font-scale));font-weight:600;color:var(--text);}
+  .t-rec-title{font-size:calc(14px * var(--app-font-scale));font-weight:500;color:var(--text);}
+  .t-path{font-size:calc(13px * var(--app-font-scale));font-weight:400;color:var(--text-2);}
   .chev{color:var(--accent);} .chev-gray{color:var(--text-3);}
   /* search */
   .search{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:8px;}
@@ -52,8 +114,8 @@
   .overview{display:flex;flex-direction:column;gap:12px;}
   .ov-card{border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:6px;background:var(--card);border:1px solid var(--border);}
   .ov-num-row{display:flex;align-items:baseline;gap:6px;}
-  .ov-big-plan{font-size:28px;font-weight:700;color:var(--accent);line-height:1;}
-  .ov-big-review{font-size:24px;font-weight:700;color:var(--orange);line-height:1;}
+  .ov-big-plan{font-size:calc(28px * var(--app-font-scale));font-weight:700;color:var(--accent);line-height:1;}
+  .ov-big-review{font-size:calc(24px * var(--app-font-scale));font-weight:700;color:var(--orange);line-height:1;}
   /* folder rows */
   .frow{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
   .ficon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -61,7 +123,7 @@
   .newfolder{border:1px solid var(--accent-stroke);border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--accent);font-size:14px;font-weight:500;background:transparent;cursor:pointer;}
   /* header row */
   .head{display:flex;align-items:center;justify-content:space-between;}
-  .head .title{font-size:18px;font-weight:700;color:var(--text);}
+  .head .title{font-size:calc(18px * var(--app-font-scale));font-weight:700;color:var(--text);}
   .back,.more,.bell,.del{background:none;border:none;cursor:pointer;display:flex;padding:0;color:var(--text);}
   .icon-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;}
   .icon-btn:active{background:rgba(0,0,0,.05);}
@@ -491,7 +553,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -872,10 +934,13 @@ function applyTheme(theme){
   document.documentElement.setAttribute('data-theme', t);
 }
 function loadSettings(){
-  var s = DB.settings || { theme:'light', soundOn:true, style:'classic', bgImage:null };
+  var s = normalizeSettings(DB.settings);
+  DB.settings = s;
   applyTheme(s.theme);
   applyStyle(s.style);
   applyBackground(s.bgImage);
+  applyFontSize(s.fontSize);
+  applyTextColor(s.textColor);
 }
 function applyStyle(style){
   var st = normalizeStyle(style);
@@ -883,11 +948,27 @@ function applyStyle(style){
   if(app) app.setAttribute('data-style', st);
 }
 function applyBackground(img){
-  if(img){ document.documentElement.style.setProperty('--app-bg-image', 'url("' + img + '")'); }
-  else { document.documentElement.style.removeProperty('--app-bg-image'); }
+  var app = document.getElementById('app');
+  if(img){ document.documentElement.style.setProperty('--app-bg-image', 'url("' + img + '")'); if(app) app.classList.add('has-bg'); }
+  else { document.documentElement.style.removeProperty('--app-bg-image'); if(app) app.classList.remove('has-bg'); }
+}
+function applyFontSize(size){
+  var app = document.getElementById('app'); if(!app) return;
+  FONT_SIZE_OPTIONS.forEach(function(v){ app.classList.remove('fs-'+v); });
+  app.classList.add('fs-'+normalizeFontSize(size));
+}
+function applyTextColor(color){
+  var app = document.getElementById('app'); if(!app) return;
+  app.setAttribute('data-text-color', normalizeTextColor(color));
 }
 function onStylePick(style){
   var s = DB.settings; s.style = normalizeStyle(style); applyStyle(s.style); saveDB(); renderMe(); playSound('toggle');
+}
+function onFontSizePick(size){
+  var s = DB.settings; s.fontSize = normalizeFontSize(size); applyFontSize(s.fontSize); saveDB(); renderMe(); playSound('toggle');
+}
+function onTextColorPick(color){
+  var s = DB.settings; s.textColor = normalizeTextColor(color); applyTextColor(s.textColor); saveDB(); renderMe(); playSound('toggle');
 }
 function onBgClear(){
   var s = DB.settings; s.bgImage = null; applyBackground(null); saveDB(); renderMe(); playSound('delete');
@@ -910,6 +991,8 @@ function renderMe(){
       '<div class="me-row" data-optimize><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><path d="M2 4.5C2 3.7 2.7 3 3.5 3H6L7.5 4.8H12.5C13.3 4.8 14 5.5 14 6.3V11.5C14 12.3 13.3 13 12.5 13H3.5C2.7 13 2 12.3 2 11.5V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 8.5L7 10L10.5 6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">优化存储</div><div class="t-meta">'+imageStatsCache.count+' 张图片 · 已占 '+formatBytes(imageStatsCache.bytes)+' · 点击清理无用图片</div></div><span class="me-action">优化</span></div>'+
     '</div>'+
     '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">界面风格</div><div class="style-chips">' + STYLE_LIST.map(function(st){ return '<div class="style-chip '+(st===s.style?'active':'')+'" data-style-opt="'+st+'">'+(getStyleLabel(st))+'</div>'; }).join('') + '</div></div>'+
+    '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">字体大小</div><div class="style-chips">' + FONT_SIZE_OPTIONS.map(function(v){ return '<div class="style-chip '+(v===s.fontSize?'active':'')+'" data-font-size-opt="'+v+'">'+(v==='small'?'小':v==='normal'?'标准':v==='large'?'大':'特大')+'</div>'; }).join('') + '</div></div>'+
+    '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">文字颜色（背景上图时更清楚）</div><div class="style-chips">' + TEXT_COLOR_OPTIONS.map(function(v){ return '<div class="style-chip '+(v===s.textColor?'active':'')+'" data-text-color-opt="'+v+'">'+(v==='auto'?'自动':v==='white'?'白色':'黑色')+'</div>'; }).join('') + '</div></div>'+
     '<div class="me-card">'+
       '<div class="me-row" data-bg-upload><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="7" r="1.4" fill="currentColor"/><path d="M3 12L6.5 8.5L9 11L11 9L14 12" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">自定义背景</div><div class="t-meta">'+(s.bgImage?'已设置 · 点击更换':'未设置 · 点击上传')+'</div></div>'+(s.bgImage?'<span class="me-action" data-bg-clear style="color:var(--danger)">清除</span>':'<span class="me-action">选择</span>')+'</div>'+
     '</div>'+
@@ -1447,6 +1530,10 @@ document.getElementById('app').addEventListener('click', function(e){
   var opt=e.target.closest('[data-optimize]'); if(opt){ optimizeStorage(); return; }
   // me: style option
   var sopt=e.target.closest('[data-style-opt]'); if(sopt){ onStylePick(sopt.getAttribute('data-style-opt')); return; }
+  // me: font size option
+  var fsopt=e.target.closest('[data-font-size-opt]'); if(fsopt){ onFontSizePick(fsopt.getAttribute('data-font-size-opt')); return; }
+  // me: text color option
+  var tcopt=e.target.closest('[data-text-color-opt]'); if(tcopt){ onTextColorPick(tcopt.getAttribute('data-text-color-opt')); return; }
   // me: clear background（须先于 data-bg-upload 判断，因为清除按钮在行内）
   var bc=e.target.closest('[data-bg-clear]'); if(bc){ onBgClear(); return; }
   // me: background upload

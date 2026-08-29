@@ -225,14 +225,16 @@ export const THEME_TOKENS = {
     '--text':'#1A1D29', '--text-2':'#70747E', '--text-3':'#A0A4AE',
     '--accent':'#4F6EF7', '--accent-soft':'#EEF1FE', '--accent-stroke':'#C9D2FB',
     '--orange':'#FF8A3D', '--orange-soft':'#FFF1E6', '--orange-card':'#FFF8F2', '--orange-border':'#FBCDA8',
-    '--progress-track':'#F0E2D6', '--check-off':'#C9CDD6', '--body':'#2A2D36', '--danger':'#E53935'
+    '--progress-track':'#F0E2D6', '--check-off':'#C9CDD6', '--body':'#2A2D36', '--danger':'#E53935',
+    '--text-shadow':'0 1px 3px rgba(255,255,255,0.65)'
   },
   dark: {
     '--bg':'#0E1014', '--card':'#1A1D24', '--border':'#2A2E37',
     '--text':'#EDEFF4', '--text-2':'#9AA0AC', '--text-3':'#6B7180',
     '--accent':'#6E8BFF', '--accent-soft':'#1E2540', '--accent-stroke':'#33407A',
     '--orange':'#FF9A55', '--orange-soft':'#3A2A1E', '--orange-card':'#2A2018', '--orange-border':'#5A3E2A',
-    '--progress-track':'#2E2620', '--check-off':'#4A4F5A', '--body':'#C8CDD6', '--danger':'#FF5B56'
+    '--progress-track':'#2E2620', '--check-off':'#4A4F5A', '--body':'#C8CDD6', '--danger':'#FF5B56',
+    '--text-shadow':'0 1px 3px rgba(0,0,0,0.55)'
   }
 };
 /** 规范化主题名，仅 'dark' 合法，其余回退 'light' */
@@ -256,17 +258,30 @@ export function getStyleLabel(s){ return STYLE_LABELS[normalizeStyle(s)] || '经
 export function getStyleTokens(style){ return STYLE_TOKENS[normalizeStyle(style)]; }
 
 /* ============ 用户设置（个性化）默认与规范化 ============ */
-/** 设置默认值：浅色主题、开启音效、经典风格、无背景 */
-export function getDefaultSettings(){ return { theme:'light', soundOn:true, style:'classic', bgImage:null }; }
+export const FONT_SIZE_OPTIONS = ['small','normal','large','huge'];
+export const TEXT_COLOR_OPTIONS = ['auto','white','black'];
+export const FONT_SIZE_SCALE = { small:0.875, normal:1, large:1.125, huge:1.25 };
+
+/** 规范化字体大小选项 */
+export function normalizeFontSize(s){ return FONT_SIZE_OPTIONS.indexOf(s) >= 0 ? s : 'normal'; }
+/** 规范化文字颜色选项 */
+export function normalizeTextColor(s){ return TEXT_COLOR_OPTIONS.indexOf(s) >= 0 ? s : 'auto'; }
+/** 获取字体大小对应的缩放系数 */
+export function getFontScale(s){ return FONT_SIZE_SCALE[normalizeFontSize(s)] || 1; }
+
+/** 设置默认值：浅色主题、开启音效、经典风格、无背景、标准字体/自动颜色 */
+export function getDefaultSettings(){ return { theme:'light', soundOn:true, style:'classic', bgImage:null, fontSize:'normal', textColor:'auto' }; }
 /** 规范化用户设置：缺失/非法字段回落默认值，不影响已合法字段；输入非对象时返回默认 */
 export function normalizeSettings(input){
   const d = getDefaultSettings();
   if(!input || typeof input !== 'object') return d;
   return {
-    theme:   normalizeTheme(input.theme) || 'light',
-    soundOn: input.soundOn !== false,
-    style:   normalizeStyle(input.style),
-    bgImage: input.bgImage ? input.bgImage : null,
+    theme:     normalizeTheme(input.theme) || 'light',
+    soundOn:   input.soundOn !== false,
+    style:     normalizeStyle(input.style),
+    bgImage:   input.bgImage ? input.bgImage : null,
+    fontSize:  normalizeFontSize(input.fontSize),
+    textColor: normalizeTextColor(input.textColor),
   };
 }
 
