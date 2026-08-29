@@ -215,6 +215,11 @@
   .lightbox-bar .lb-close{background:rgba(255,255,255,.22);}
   .lightbox-bar .lb-replace{background:var(--accent);}
   .lightbox-bar .lb-del{background:var(--danger);}
+  /* 缩放：外层 stage 承载图片并裁剪，transform 由 JS 控制 */
+  .lightbox-stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in;}
+  .lightbox-overlay img{transform-origin:center center;will-change:transform;transition:transform .1s ease;}
+  .lightbox-bar .lb-zoom-in,.lightbox-bar .lb-zoom-out{background:rgba(255,255,255,.22);font-size:20px;line-height:1;padding:8px 14px;}
+  .lightbox-bar .lb-scale{color:#fff;font-size:13px;min-width:46px;text-align:center;}
 
   /* selection mode */
   .selbox{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--check-off);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
@@ -444,9 +449,14 @@
 
   <!-- IMAGE LIGHTBOX -->
   <div class="lightbox-overlay" id="lightbox">
-    <div class="lightbox-hint">点击空白处关闭</div>
-    <img id="lightboxImg" alt="图片预览" />
+    <div class="lightbox-hint">双指/滚轮缩放 · 放大后可拖动 · 点击空白处关闭</div>
+    <div class="lightbox-stage" id="lightboxStage">
+      <img id="lightboxImg" alt="图片预览" />
+    </div>
     <div class="lightbox-bar">
+      <button class="lb-zoom-out" id="lbZoomOut" aria-label="缩小">−</button>
+      <span class="lb-scale" id="lbScale">100%</span>
+      <button class="lb-zoom-in" id="lbZoomIn" aria-label="放大">＋</button>
       <button class="lb-replace" id="lbReplace">替换图片</button>
       <button class="lb-del" id="lbDel">删除图片</button>
       <button class="lb-close" id="lbClose">关闭</button>
@@ -481,7 +491,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
@@ -1452,12 +1462,54 @@ document.getElementById('bgFile').addEventListener('change', function(){
 });
 /* lightbox for previewing uploaded images */
 var lightboxType=null;
-function openLightbox(src){ playSound('pop'); var lb=document.getElementById('lightbox'); document.getElementById('lightboxImg').src=src; lb.classList.add('show'); }
-function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; }
+/* lightbox for previewing uploaded images (with zoom / pan) */
+var lbScale=1, lbTX=0, lbTY=0;          // 当前缩放倍率与平移偏移（屏幕像素）
+function applyLbTransform(){
+  var img=document.getElementById('lightboxImg');
+  img.style.transform='translate('+lbTX+'px,'+lbTY+'px) scale('+lbScale+')';
+  var sc=document.getElementById('lbScale'); if(sc) sc.textContent=Math.round(lbScale*100)+'%';
+}
+function lbReset(){ lbScale=1; lbTX=0; lbTY=0; applyLbTransform(); }
+function lbSetScale(s){
+  lbScale=clampScale(s, IMAGE_VIEWER_LIMITS.minScale, IMAGE_VIEWER_LIMITS.maxScale);
+  if(lbScale<=1.001){ lbTX=0; lbTY=0; }   // 复位到 1x 时清除平移
+  applyLbTransform();
+}
+function lbZoomBy(delta){ lbSetScale(nextImageScale(lbScale, delta, IMAGE_VIEWER_LIMITS.minScale, IMAGE_VIEWER_LIMITS.maxScale)); }
+function openLightbox(src){ playSound('pop'); var lb=document.getElementById('lightbox'); document.getElementById('lightboxImg').src=src; lbReset(); lb.classList.add('show'); }
+function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; lbReset(); }
 document.getElementById('lbClose').addEventListener('click', closeLightbox);
 document.getElementById('lightbox').addEventListener('click', function(e){ if(e.target===this || e.target.classList.contains('lightbox-hint')) closeLightbox(); });
+document.getElementById('lbZoomIn').addEventListener('click', function(){ lbZoomBy(IMAGE_VIEWER_LIMITS.step); });
+document.getElementById('lbZoomOut').addEventListener('click', function(){ lbZoomBy(-IMAGE_VIEWER_LIMITS.step); });
 document.getElementById('lbReplace').addEventListener('click', function(){ if(lightboxType){ currentImgTarget=lightboxType+'Img'; document.getElementById('imgFile').click(); } closeLightbox(); });
 document.getElementById('lbDel').addEventListener('click', function(){ if(lightboxType && editing){ editing.data.image=null; var el=document.getElementById(lightboxType+'Img'); if(el){ el.style.backgroundImage=''; el.classList.remove('has-img'); el.textContent='点击插入图片'; } } closeLightbox(); });
+/* 滚轮缩放（桌面） */
+var lbStage=document.getElementById('lightboxStage');
+lbStage.addEventListener('wheel', function(e){ e.preventDefault(); lbZoomBy(e.deltaY<0 ? IMAGE_VIEWER_LIMITS.step/2 : -IMAGE_VIEWER_LIMITS.step/2); }, { passive:false });
+/* 双击：在 1x 与 2x 之间切换 */
+document.getElementById('lightboxImg').addEventListener('dblclick', function(){ lbSetScale(toggleImageScale(lbScale, IMAGE_VIEWER_LIMITS.minScale, IMAGE_VIEWER_LIMITS.maxScale, 2)); });
+/* 触摸：双指捏合缩放 + 单指拖动平移（仅在已放大时） */
+(function(){
+  function dist(t){ var dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
+  var pinch=null, pan=null;
+  lbStage.addEventListener('touchstart', function(e){
+    if(e.touches.length===2){ pinch={ d:dist(e.touches), scale:lbScale }; }
+    else if(e.touches.length===1 && lbScale>1){ pan={ x:e.touches[0].clientX, y:e.touches[0].clientY, tx:lbTX, ty:lbTY }; }
+  }, { passive:false });
+  lbStage.addEventListener('touchmove', function(e){
+    if(e.touches.length===2 && pinch){
+      e.preventDefault();
+      var d=dist(e.touches); if(d>0) lbSetScale(pinch.scale * (d/pinch.d));
+    } else if(e.touches.length===1 && pan && lbScale>1){
+      e.preventDefault();
+      lbTX=pan.tx + (e.touches[0].clientX-pan.x);
+      lbTY=pan.ty + (e.touches[0].clientY-pan.y);
+      applyLbTransform();
+    }
+  }, { passive:false });
+  lbStage.addEventListener('touchend', function(e){ if(e.touches.length<2) pinch=null; if(e.touches.length===0) pan=null; });
+})();
 /* custom important-day events */
 function openEventModal(){
   var def=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(calSelected).padStart(2,'0');

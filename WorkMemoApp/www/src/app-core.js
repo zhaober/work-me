@@ -520,6 +520,48 @@ export function describeStorageError(err){
   return '保存失败：' + ((err && err.message) || '未知原因');
 }
 
+/* ============ 图片查看器（放大 / 缩小 / 平移） ============ */
+/** 图片查看器缩放限制：最小/最大倍率、单步增量（滚轮 / 按钮共用） */
+export const IMAGE_VIEWER_LIMITS = { minScale: 1, maxScale: 5, step: 0.3 };
+
+/** 把缩放倍率夹到 [min, max]；非法值回落 1 */
+export function clampScale(scale, min, max){
+  var s = Number(scale);
+  if(!isFinite(s) || s <= 0) s = 1;
+  var lo = Number(min), hi = Number(max);
+  if(!isFinite(lo)) lo = 1;
+  if(!isFinite(hi)) hi = 5;
+  if(s < lo) s = lo;
+  if(s > hi) s = hi;
+  return s;
+}
+
+/**
+ * 计算下一步缩放倍率（倍增式，滚轮与按钮共用）
+ * @param {number} current 当前倍率
+ * @param {number} delta 增量：>0 放大，<0 缩小；0 或非法时原样夹取返回
+ * @param {number} min 最小倍率
+ * @param {number} max 最大倍率
+ */
+export function nextImageScale(current, delta, min, max){
+  var s = Number(current);
+  if(!isFinite(s) || s <= 0) s = 1;
+  var d = Number(delta);
+  if(!isFinite(d) || d === 0) return clampScale(s, min, max);
+  s = d > 0 ? s * (1 + d) : s / (1 - d);
+  return clampScale(s, min, max);
+}
+
+/** 双击 / 双指点按在 1x 与目标倍率（默认 2x）之间切换 */
+export function toggleImageScale(current, min, max, target){
+  var s = Number(current); if(!isFinite(s)) s = 1;
+  var lo = Number(min); if(!isFinite(lo)) lo = 1;
+  var hi = Number(max); if(!isFinite(hi)) hi = 5;
+  var t = Number(target); if(!(t > lo)) t = 2;
+  // 已接近最小倍率（视为未放大）则放大到目标；否则复位到最小
+  return Math.abs(s - lo) < 0.05 ? clampScale(t, lo, hi) : clampScale(lo, lo, hi);
+}
+
 /* ============ 多级提醒（12306 式） ============ */
 /** 默认提醒方案：提前 3 小时开始，每 30 分钟一次，最晚提前 5 分钟，并含到点提醒 */
 export const DEFAULT_REMINDER_PLAN = { startMin: 180, intervalMin: 30, stopMin: 5, includeTarget: true };
