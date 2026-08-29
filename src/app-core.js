@@ -448,3 +448,74 @@ export function parseWheelTime(str){
   if(h < 0 || h > 23 || mi < 0 || mi > 59) return null;
   return { h:h, m:mi };
 }
+
+/* ============ 图片压缩与存储 ============ */
+/** 图片存储限制：背景最大边长 / JPEG 质量 / 单张存上限 */
+export const IMAGE_LIMITS = { bgMaxDim: 1280, bgQuality: 0.72, maxStoredBytes: 1024 * 1024 };
+
+/** 格式化字节数为可读文本 */
+export function formatBytes(bytes){
+  var n = Number(bytes);
+  if(!isFinite(n) || n <= 0) return '0 B';
+  if(n < 1024) return n + ' B';
+  if(n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+/**
+ * 估算 data URL 解码后的字节数（base64 每 4 字符对应 3 字节，末尾 = 为填充）
+ * 用于判断图片是否过大，而不用真的解码
+ */
+export function estimateDataUrlBytes(dataUrl){
+  if(!dataUrl || typeof dataUrl !== 'string') return 0;
+  var i = dataUrl.indexOf(',');
+  var b64 = (i >= 0 ? dataUrl.slice(i + 1) : dataUrl).replace(/\s/g, '');
+  if(!b64.length) return 0;
+  var pad = 0;
+  if(b64.slice(-2) === '==') pad = 2;
+  else if(b64.slice(-1) === '=') pad = 1;
+  var bytes = Math.floor(b64.length * 3 / 4) - pad;
+  return bytes > 0 ? bytes : 0;
+}
+
+/**
+ * 按最大边长计算缩放尺寸：保持宽高比，且不放大
+ * @returns {{width:number, height:number, changed:boolean}}
+ */
+export function computeResize(width, height, maxDim){
+  var w = Number(width), h = Number(height), max = Number(maxDim);
+  if(!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return { width:0, height:0, changed:false };
+  if(!isFinite(max) || max <= 0) return { width:w, height:h, changed:false };
+  var longest = Math.max(w, h);
+  if(longest <= max) return { width:w, height:h, changed:false };
+  var ratio = max / longest;
+  return {
+    width: Math.max(1, Math.round(w * ratio)),
+    height: Math.max(1, Math.round(h * ratio)),
+    changed: true
+  };
+}
+
+/**
+ * 判断是否为「本地存储配额超限」错误
+ * 各浏览器表现不一致：名称 QuotaExceededError / NS_ERROR_DOM_QUOTA_REACHED，
+ * 或仅带 code 22 / 1014
+ */
+export function isQuotaError(err){
+  if(!err) return false;
+  var name = err.name || '';
+  if(name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED') return true;
+  var code = err.code;
+  return code === 22 || code === 1014;
+}
+
+/**
+ * 存储写入失败的准确提示。
+ * 关键：配额满 ≠ 手机存储空间不足，必须区分，否则误导用户
+ */
+export function describeStorageError(err){
+  if(isQuotaError(err)){
+    return '本地存储配额已满（这不是手机存储空间不足）\n\n应用数据存放在浏览器本地存储中，容量有上限。\n建议：清除自定义背景，或减少记录里的图片。';
+  }
+  return '保存失败：' + ((err && err.message) || '未知原因');
+}

@@ -481,7 +481,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 /* ============ DATA MODEL (local, single source of truth) ============ */
@@ -541,7 +541,10 @@ function saveDB(){
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records, events:DB.events, settings:DB.settings}));
   } catch(e){
-    toast('保存失败：本地存储空间不足（图片可能过多）');
+    // 关键：区分「本地存储配额已满」与「手机存储空间不足」——
+    // 后者会让用户误以为手机没空间，实际满的是 localStorage 配额
+    if(isQuotaError(e)) openNoticeModal('保存失败', describeStorageError(e));
+    else toast(describeStorageError(e));
   }
 }
 
@@ -1356,10 +1359,44 @@ document.getElementById('imgFile').addEventListener('change', function(){
   var rd=new FileReader(); rd.onload=function(ev){ if(editing){ editing.data.image=ev.target.result; } var el=document.getElementById(currentImgTarget||''); if(el){ el.style.backgroundImage='url('+ev.target.result+')'; el.classList.add('has-img'); el.textContent=''; } };
   rd.readAsDataURL(file); this.value='';
 });
+/**
+ * 读取图片并压缩：按最大边长等比缩放后转 JPEG data URL。
+ * 原图直接转 dataURL 可达数 MB，远超 localStorage 配额（约 5MB），
+ * 会导致 saveDB 抛 QuotaExceededError，被误报成「存储空间不足」。
+ */
+function compressImageFile(file, maxDim, quality){
+  return new Promise(function(resolve, reject){
+    var rd=new FileReader();
+    rd.onerror=function(){ reject(rd.error || new Error('读取失败')); };
+    rd.onload=function(ev){
+      var img=new Image();
+      img.onerror=function(){ reject(new Error('图片解析失败')); };
+      img.onload=function(){
+        var r=computeResize(img.naturalWidth, img.naturalHeight, maxDim);
+        var canvas=document.createElement('canvas');
+        canvas.width=r.width; canvas.height=r.height;
+        var ctx=canvas.getContext('2d');
+        if(!ctx){ reject(new Error('无法处理图片')); return; }
+        ctx.drawImage(img, 0, 0, r.width, r.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src=ev.target.result;
+    };
+    rd.readAsDataURL(file);
+  });
+}
 document.getElementById('bgFile').addEventListener('change', function(){
   var file=this.files&&this.files[0]; if(!file) return;
-  var rd=new FileReader(); rd.onload=function(ev){ var s=DB.settings; s.bgImage=ev.target.result; applyBackground(s.bgImage); saveDB(); renderMe(); playSound('success'); };
-  rd.readAsDataURL(file); this.value='';
+  this.value='';
+  var before=file.size;
+  compressImageFile(file, IMAGE_LIMITS.bgMaxDim, IMAGE_LIMITS.bgQuality).then(function(dataUrl){
+    var after=estimateDataUrlBytes(dataUrl);
+    var s=DB.settings; s.bgImage=dataUrl;
+    applyBackground(s.bgImage); saveDB(); renderMe(); playSound('success');
+    toast('背景已设置：'+formatBytes(before)+' → '+formatBytes(after));
+  }).catch(function(e){
+    toast('背景设置失败：'+((e&&e.message)||'未知原因'));
+  });
 });
 /* lightbox for previewing uploaded images */
 var lightboxType=null;
