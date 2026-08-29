@@ -1759,6 +1759,9 @@ function saveEditor(){
   /* 保存后重新登记所有已保存记录的提醒（含本条），避免仅前台 setTimeout 在重启后丢失 */
   clearTimerList(previewTimers);
   armAllReminders();
+  /* 同时安排原生本地通知，确保 App 退到后台或被清掉后仍能响铃 */
+  initLocalNotifications();
+  scheduleRecordNotification(DB.records[editing.id]);
   toast(isNew?'已新建并保存':'已保存');
   playSound('success');
   renderFolder(editing.folderId);
@@ -1767,7 +1770,7 @@ function saveEditor(){
 }
 function deleteCurrentRecord(){
   if(!editing || editing.isNew) return;
-  openConfirmModal('删除记录', '确定删除“'+(editing.data.title||'未命名')+'”吗？此操作不可恢复。', function(ok){ if(ok){ delete DB.records[editing.id]; saveDB(); toast('已删除'); playSound('delete'); var fid=editing.folderId; navStack=[{screen:'folder', id:fid}]; renderFolder(fid); show('folder'); } });
+  openConfirmModal('删除记录', '确定删除“'+(editing.data.title||'未命名')+'”吗？此操作不可恢复。', function(ok){ if(ok){ var rid=editing.id; cancelRecordNotification(rid); delete DB.records[rid]; saveDB(); toast('已删除'); playSound('delete'); var fid=editing.folderId; navStack=[{screen:'folder', id:fid}]; renderFolder(fid); show('folder'); } });
 }
 /* ============ REMINDER (闹钟 + 12306 式多级提醒) ============ */
 /* reminderTimers: 已保存记录登记的提醒；previewTimers: 当前编辑中、尚未保存的提醒 */
@@ -1823,6 +1826,65 @@ function scheduleReminder(time){
   ensureNotifyPermission();
   if(n) toast('已设置 ' + n + ' 次提醒，最后一次在到点');
   else toast('该时间点已过，未登记提醒');
+}
+/* ============ 原生本地通知（Capacitor LocalNotifications，后台/杀进程后仍可提醒） ============ */
+var LN = null;
+function initLocalNotifications(){
+  if(LN) return;
+  try {
+    var Cap = (typeof window !== 'undefined' && window.Capacitor) ? window.Capacitor : null;
+    if(Cap && Cap.Plugins && Cap.Plugins.LocalNotifications) LN = Cap.Plugins.LocalNotifications;
+  } catch(e){ LN = null; }
+}
+function recordNotifyId(recordId){
+  var h = 0;
+  for(var i = 0; i < String(recordId).length; i++) h = ((h * 31) + String(recordId).charCodeAt(i)) >>> 0;
+  return h % 2147483647;
+}
+function scheduleRecordNotification(record){
+  return Promise.resolve().then(function(){
+    initLocalNotifications();
+    if(!LN || !record || !record.id || !record.reminder || !record.date) return false;
+    var target = combineDateTime(record.date, record.reminder);
+    if(!isFinite(target) || target <= Date.now()) return false;
+    return LN.requestPermissions().then(function(p){
+      if(p && p.display === 'denied') return false;
+      return LN.schedule({
+        notifications: [{
+          id: recordNotifyId(record.id),
+          title: '⏰ ' + (record.title || '计划'),
+          body: '到点提醒：' + (record.title || '计划'),
+          schedule: { at: new Date(target) },
+          sound: 'default',
+          smallIcon: 'ic_launcher',
+          iconColor: '#4F6EF7'
+        }]
+      }).then(function(){ return true; }).catch(function(e){ console.error('LN schedule', e); return false; });
+    });
+  });
+}
+function cancelRecordNotification(recordId){
+  initLocalNotifications();
+  if(!LN || !recordId) return Promise.resolve(false);
+  return LN.cancel({ notifications: [{ id: recordNotifyId(recordId) }] })
+    .then(function(){ return true; }).catch(function(){ return false; });
+}
+function cancelAllRecordNotifications(){
+  initLocalNotifications();
+  if(!LN) return Promise.resolve(false);
+  return LN.cancel({}).then(function(){ return true; }).catch(function(){ return false; });
+}
+function rescheduleAllNotifications(){
+  initLocalNotifications();
+  if(!LN) return Promise.resolve(0);
+  return cancelAllRecordNotifications().then(function(){
+    var total = 0;
+    Object.keys(DB.records).forEach(function(k){
+      var r = DB.records[k];
+      if(r && r.reminder && r.date){ scheduleRecordNotification(r); total++; }
+    });
+    return total;
+  });
 }
 var currentImgTarget=null;
 document.getElementById('imgFile').addEventListener('change', function(){
@@ -2005,6 +2067,8 @@ bootstrapStore().then(function(){
   maybeAutoShowQuote();
   /* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
   armAllReminders();
+  /* 同时通过 Capacitor 本地通知在系统层安排提醒，确保 App 不在前台也能收到 */
+  rescheduleAllNotifications();
 }).catch(function(e){
   // 存储层异常不应让 App 白屏：用内存中的（示例/降级）数据继续启动
   loadSettings();
