@@ -520,6 +520,47 @@ export function describeStorageError(err){
   return '保存失败：' + ((err && err.message) || '未知原因');
 }
 
+/* ============ 存储优化（记录内图片压缩 / 用量统计） ============ */
+/** 记录内图片的存储限制：最大边长 / JPEG 质量 / 超过该字节数才纳入「优化」 */
+export const RECORD_IMAGE_LIMITS = { maxDim: 1600, quality: 0.82, compressAboveBytes: 300 * 1024 };
+
+/** 估算一段字符串写入 localStorage 的字节占用（UTF-16，约 2 字节/字符） */
+export function estimateStringBytes(str){
+  return (typeof str === 'string' && str.length) ? str.length * 2 : 0;
+}
+
+/** 累加所有记录内图片的字节占用（无图/非法安全） */
+export function sumImageBytes(records){
+  var total = 0, recs = records || {};
+  Object.keys(recs).forEach(function(k){
+    var img = recs[k] && recs[k].image;
+    if(typeof img === 'string' && img.length) total += estimateDataUrlBytes(img);
+  });
+  return total;
+}
+
+/** 判断某张图片是否超过阈值、值得重新压缩（空值/非法阈值返回 false） */
+export function shouldCompressImage(dataUrl, maxBytes){
+  var n = Number(maxBytes);
+  if(!isFinite(n) || n <= 0) return false;
+  if(typeof dataUrl !== 'string' || !dataUrl.length) return false;
+  return estimateDataUrlBytes(dataUrl) > n;
+}
+
+/** 统计超过阈值的图片数量与总占用 */
+export function countLargeImages(records, maxBytes){
+  var recs = records || {}, threshold = (isFinite(Number(maxBytes)) && Number(maxBytes) > 0) ? Number(maxBytes) : 0;
+  var count = 0, total = 0;
+  Object.keys(recs).forEach(function(k){
+    var img = recs[k] && recs[k].image;
+    if(typeof img === 'string' && img.length){
+      var b = estimateDataUrlBytes(img);
+      if(b > threshold){ count++; total += b; }
+    }
+  });
+  return { count: count, totalBytes: total };
+}
+
 /* ============ 图片查看器（放大 / 缩小 / 平移） ============ */
 /** 图片查看器缩放限制：最小/最大倍率、单步增量（滚轮 / 按钮共用） */
 export const IMAGE_VIEWER_LIMITS = { minScale: 1, maxScale: 5, step: 0.3 };
