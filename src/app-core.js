@@ -275,10 +275,47 @@ export const FONT_SIZE_OPTIONS = ['small','normal','large','huge'];
 export const TEXT_COLOR_OPTIONS = ['auto','white','black'];
 export const FONT_SIZE_SCALE = { small:0.875, normal:1, large:1.125, huge:1.25 };
 
+/** 文字颜色预设：自动 / 白 / 黑 + 精选易读色（叠在照片背景上仍清晰）。
+ *  末尾的任意十六进制色由取色器产生，不在 TEXT_COLOR_OPTIONS 中，但被 normalizeTextColor 接受。 */
+export const TEXT_COLOR_PRESETS = ['auto','white','black','#FFD54A','#7CF5C0','#FF9BB3','#9BD0FF','#C7B8FF'];
+
+/** 判断是否为 #RGB 或 #RRGGBB 格式（大小写不限） */
+export function isHexColor(s){ return typeof s === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.trim()); }
+/** 解析十六进制颜色为 {r,g,b}（0-255）；非法返回 null */
+export function hexToRgb(s){
+  if(!isHexColor(s)) return null;
+  var h = s.trim().replace('#','');
+  if(h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  var n = parseInt(h, 16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+/** 相对亮度（0=纯黑，1=纯白），用于决定背景阴影深浅以保证文字可读 */
+export function relativeLuminance(s){
+  var c = hexToRgb(s); if(!c) return 1;
+  var a = [c.r,c.g,c.b].map(function(v){ v = v/255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); });
+  return 0.2126*a[0] + 0.7152*a[1] + 0.0722*a[2];
+}
+/** 根据自定义颜色生成文字阴影：深色字用浅阴影，浅色字用深阴影 */
+export function textShadowForHex(s){ return relativeLuminance(s) < 0.5 ? '0 1px 4px rgba(255,255,255,.7)' : '0 1px 4px rgba(0,0,0,.6)'; }
+/** 自定义色转 CSS 变量集合（--text/--text-2/--text-3/--body）；非法返回 null */
+export function customTextColorVars(hex){
+  var c = hexToRgb(hex); if(!c) return null;
+  var rgb = c.r + ',' + c.g + ',' + c.b;
+  return { '--text':'rgb('+rgb+')', '--text-2':'rgba('+rgb+',.82)', '--text-3':'rgba('+rgb+',.6)', '--body':'rgb('+rgb+')' };
+}
+
 /** 规范化字体大小选项 */
 export function normalizeFontSize(s){ return FONT_SIZE_OPTIONS.indexOf(s) >= 0 ? s : 'normal'; }
-/** 规范化文字颜色选项 */
-export function normalizeTextColor(s){ return TEXT_COLOR_OPTIONS.indexOf(s) >= 0 ? s : 'auto'; }
+/** 规范化文字颜色：已知预设原样返回；合法十六进制规范化（#RGB→#RRGGBB、转小写）后返回；其余回落 auto */
+export function normalizeTextColor(s){
+  if(TEXT_COLOR_OPTIONS.indexOf(s) >= 0) return s;
+  if(isHexColor(s)){
+    var h = s.trim().toLowerCase();
+    if(h.length === 4) h = '#' + h[1]+h[1] + h[2]+h[2] + h[3]+h[3];
+    return h;
+  }
+  return 'auto';
+}
 /** 获取字体大小对应的缩放系数 */
 export function getFontScale(s){ return FONT_SIZE_SCALE[normalizeFontSize(s)] || 1; }
 

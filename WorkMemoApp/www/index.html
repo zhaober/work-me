@@ -84,6 +84,18 @@
   .app.has-bg[data-text-color="black"] .ov-big-plan,
   .app.has-bg[data-text-color="black"] .ov-big-review,
   .app.has-bg[data-text-color="black"] .newfolder{text-shadow:0 1px 3px rgba(255,255,255,0.75);}
+  /* 自定义文字颜色叠在背景图上时，用与颜色亮度相反的阴影保证可读（深色字→浅阴影，浅色字→深阴影） */
+  .app.has-bg[data-text-color="custom"] .t-greet,
+  .app.has-bg[data-text-color="custom"] .t-date,
+  .app.has-bg[data-text-color="custom"] .t-section,
+  .app.has-bg[data-text-color="custom"] .t-title,
+  .app.has-bg[data-text-color="custom"] .t-name,
+  .app.has-bg[data-text-color="custom"] .t-rec-title,
+  .app.has-bg[data-text-color="custom"] .t-body,
+  .app.has-bg[data-text-color="custom"] .head .title,
+  .app.has-bg[data-text-color="custom"] .ov-big-plan,
+  .app.has-bg[data-text-color="custom"] .ov-big-review,
+  .app.has-bg[data-text-color="custom"] .newfolder{text-shadow:var(--text-shadow);}
   .screen{position:absolute;top:0;left:0;right:0;bottom:95px;overflow-y:auto;display:none;padding-top:env(safe-area-inset-top);}
   .screen.active{display:block;}
   .screen.editor{bottom:64px;}
@@ -646,7 +658,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -1087,7 +1099,16 @@ function applyFontSize(size){
 }
 function applyTextColor(color){
   var app = document.getElementById('app'); if(!app) return;
-  app.setAttribute('data-text-color', normalizeTextColor(color));
+  /* 清掉上一次可能写入的内联自定义变量，避免与 auto/white/black 互相污染 */
+  ['--text','--text-2','--text-3','--body','--text-shadow'].forEach(function(p){ app.style.removeProperty(p); });
+  var c = normalizeTextColor(color);
+  if(c === 'white' || c === 'black'){ app.setAttribute('data-text-color', c); return; }
+  if(c === 'auto'){ app.setAttribute('data-text-color', 'auto'); return; }
+  /* 自定义任意颜色：直接写内联 CSS 变量（内联优先级高于属性选择器规则） */
+  app.setAttribute('data-text-color', 'custom');
+  var vars = customTextColorVars(c);
+  if(vars){ Object.keys(vars).forEach(function(k){ app.style.setProperty(k, vars[k]); }); }
+  app.style.setProperty('--text-shadow', textShadowForHex(c));
 }
 function onStylePick(style){
   var s = DB.settings; s.style = normalizeStyle(style); applyStyle(s.style); saveDB(); renderMe(); playSound('toggle');
@@ -1120,11 +1141,28 @@ function renderMe(){
     '</div>'+
     '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">界面风格</div><div class="style-chips">' + STYLE_LIST.map(function(st){ return '<div class="style-chip '+(st===s.style?'active':'')+'" data-style-opt="'+st+'">'+(getStyleLabel(st))+'</div>'; }).join('') + '</div></div>'+
     '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">字体大小</div><div class="style-chips">' + FONT_SIZE_OPTIONS.map(function(v){ return '<div class="style-chip '+(v===s.fontSize?'active':'')+'" data-font-size-opt="'+v+'">'+(v==='small'?'小':v==='normal'?'标准':v==='large'?'大':'特大')+'</div>'; }).join('') + '</div></div>'+
-    '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">文字颜色（背景上图时更清楚）</div><div class="style-chips">' + TEXT_COLOR_OPTIONS.map(function(v){ return '<div class="style-chip '+(v===s.textColor?'active':'')+'" data-text-color-opt="'+v+'">'+(v==='auto'?'自动':v==='white'?'白色':'黑色')+'</div>'; }).join('') + '</div></div>'+
+    '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">文字颜色（背景上图时更清楚）</div>'+
+      '<div class="style-chips">' + TEXT_COLOR_PRESETS.map(function(v){
+        var label = v==='auto'?'自动':v==='white'?'白色':v==='black'?'黑色':v;
+        var dot = (v==='auto'||v==='white'||v==='black') ? '' : ('<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+v+';margin-right:6px;vertical-align:middle;box-shadow:0 0 0 1px rgba(0,0,0,.15)"></span>');
+        return '<div class="style-chip '+(v===s.textColor?'active':'')+'" data-text-color-opt="'+v+'">'+dot+label+'</div>';
+      }).join('') + '</div>'+
+      '<div class="row-center" style="margin-top:10px;gap:10px;">'+
+        '<input type="color" data-text-color-custom value="'+((isHexColor(s.textColor)?s.textColor:'#FFD54A'))+'" style="width:42px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--card);padding:2px;cursor:pointer;">'+
+        '<span class="t-meta">自定义任意颜色</span>'+
+      '</div>'+
+    '</div>'+
+    '<div class="me-section"><div class="t-label" style="margin:8px 2px 4px">提醒通知</div>'+
+      '<div class="me-card">'+
+        '<div class="me-row" data-notify-permission><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><path d="M8 2.5C5.8 2.5 4 4.1 4 6.3V9.2L2.8 10.8C2.5 11.2 2.8 11.8 3.4 11.8H12.6C13.2 11.8 13.5 11.2 13.2 10.8L12 9.2V6.3C12 4.1 10.2 2.5 8 2.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.6 13.3C6.9 13.9 7.4 14.2 8 14.2C8.6 14.2 9.1 13.9 9.4 13.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div><div class="me-info"><div class="t-name">通知权限</div><div class="t-meta" id="notifyPermMeta">检测中…</div></div><svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
+        '<div class="me-row" data-notify-test><div class="me-ico" style="background:var(--orange-soft);color:var(--orange)"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6 11.5L13 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">发送测试通知</div><div class="t-meta">验证后台能否弹窗</div></div><span class="me-action">发送</span></div>'+
+      '</div>'+
+    '</div>'+
     '<div class="me-card">'+
       '<div class="me-row" data-bg-upload><div class="me-ico" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="7" r="1.4" fill="currentColor"/><path d="M3 12L6.5 8.5L9 11L11 9L14 12" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></div><div class="me-info"><div class="t-name">自定义背景</div><div class="t-meta">'+(s.bgImage?'已设置 · 点击更换':'未设置 · 点击上传')+'</div></div>'+(s.bgImage?'<span class="me-action" data-bg-clear style="color:var(--danger)">清除</span>':'<span class="me-action">选择</span>')+'</div>'+
     '</div>'+
     '<div class="t-meta me-foot">工作计划与复盘 · 本地优先 · 数据不上云</div>';
+  refreshNotifyPermUI();
 }
 /**
  * 优化存储：清理不再被任何笔记引用的图片（换图、删笔记后的残留）。
@@ -1662,6 +1700,19 @@ document.getElementById('app').addEventListener('click', function(e){
   var fsopt=e.target.closest('[data-font-size-opt]'); if(fsopt){ onFontSizePick(fsopt.getAttribute('data-font-size-opt')); return; }
   // me: text color option
   var tcopt=e.target.closest('[data-text-color-opt]'); if(tcopt){ onTextColorPick(tcopt.getAttribute('data-text-color-opt')); return; }
+  // me: text color custom picker（取色器）
+  var tcin=e.target.closest('[data-text-color-custom]'); if(tcin){ onTextColorPick(tcin.value); return; }
+  // me: 通知权限（检测/请求/引导）
+  var np=e.target.closest('[data-notify-permission]'); if(np){
+    queryNotifyPermission().then(function(st){
+      if(st === 'granted'){ toast('通知权限已开启'); }
+      else if(st === 'denied'){ openNotifyHelpModal(); }
+      else { requestNotifyPermission().then(function(g){ if(!g) openNotifyHelpModal(); else { toast('已开启通知权限'); try{ rescheduleAllNotifications(); }catch(e){} refreshNotifyPermUI(); } }); }
+    });
+    return;
+  }
+  // me: 发送测试通知
+  var nt=e.target.closest('[data-notify-test]'); if(nt){ sendTestNotification(); return; }
   // me: clear background（须先于 data-bg-upload 判断，因为清除按钮在行内）
   var bc=e.target.closest('[data-bg-clear]'); if(bc){ onBgClear(); return; }
   // me: background upload
@@ -1887,9 +1938,12 @@ function saveEditor(){
   /* 保存后重新登记所有已保存记录的提醒（含本条），避免仅前台 setTimeout 在重启后丢失 */
   clearTimerList(previewTimers);
   armAllReminders();
-  /* 同时安排原生本地通知，确保 App 退到后台或被清掉后仍能响铃 */
+  /* 同时安排原生本地通知，确保 App 退到后台或被清掉后仍能响铃。
+     保存是用户手势，先请求权限（Android 13+ 必须在手势内弹框），再登记 */
   initLocalNotifications();
-  scheduleRecordNotification(DB.records[editing.id]);
+  requestNotifyPermission().then(function(granted){
+    if(granted !== false) scheduleRecordNotification(DB.records[editing.id]);
+  });
   toast(isNew?'已新建并保存':'已保存');
   playSound('success');
   renderFolder(editing.folderId);
@@ -1952,6 +2006,11 @@ function scheduleReminder(time){
   clearTimerList(previewTimers);
   var n = armReminders(editing.data, DEFAULT_REMINDER_PLAN, previewTimers);
   ensureNotifyPermission();
+  /* 设置提醒本身就是用户手势，正好借此向系统申请通知权限（Android 13+ 必须在手势内弹框），
+     这样保存后原生通知才有资格在后台/杀进程后弹窗 */
+  requestNotifyPermission().then(function(granted){
+    if(granted === false) openNotifyHelpModal();
+  });
   if(n) toast('已设置 ' + n + ' 次提醒，最后一次在到点');
   else toast('该时间点已过，未登记提醒');
 }
@@ -1988,8 +2047,11 @@ function scheduleRecordNotification(record){
     if(!isValidNotificationId(nid)) return false;
     var target = combineDateTime(record.date, record.reminder);
     if(!isFinite(target) || target <= Date.now()) return false;
-    return safeLN('requestPermissions', []).then(function(p){
-      if(p && p.display === 'denied') return false;
+    /* 只在校验已授权时登记：requestPermissions 必须在用户手势内调用（见 saveRecord /
+       scheduleReminder / 设置页），启动期无手势调用会被 Android 13 自动拒绝并浪费弹框机会 */
+    return safeLN('checkPermissions', []).then(function(p){
+      var st = (p && (p.display || p.notifications)) || 'prompt';
+      if(st !== 'granted') return false;
       return safeLN('schedule', [{
         notifications: [{
           id: nid,
@@ -2001,7 +2063,7 @@ function scheduleRecordNotification(record){
           iconColor: '#4F6EF7'
         }]
       }]).then(function(){ return true; }).catch(function(e){ console.error('LN schedule', e); return false; });
-    });
+    }).catch(function(){ return false; });
   });
 }
 function cancelRecordNotification(recordId){
@@ -2042,6 +2104,82 @@ async function rescheduleAllNotifications(){
     // 系统通知不可用只是少一个提醒渠道，绝不能影响 App 本身
     return 0;
   }
+}
+/** 读取系统通知权限状态：unavailable（无原生插件）/ granted / denied / prompt（尚未请求） */
+async function queryNotifyPermission(){
+  initLocalNotifications();
+  if(!LN) return 'unavailable';
+  try {
+    if(typeof LN.checkPermissions === 'function'){
+      var r = await safeLN('checkPermissions', []);
+      var st = (r && (r.display || r.notifications)) || 'prompt';
+      if(st === 'granted') return 'granted';
+      if(st === 'denied') return 'denied';
+      return 'prompt';
+    }
+  } catch(e){ /* check 失败不阻断主流程 */ }
+  return 'prompt';
+}
+/** 在用户手势中请求通知权限；返回是否授予。Android 13+ 必须在手势内调用才会弹出系统授权框 */
+async function requestNotifyPermission(){
+  initLocalNotifications();
+  if(!LN) return false;
+  try {
+    var r = await safeLN('requestPermissions', []);
+    var st = (r && (r.display || r.notifications)) || 'denied';
+    return st === 'granted';
+  } catch(e){ return false; }
+}
+/** 立即发一条 5 秒后的测试通知，用于验证「后台弹窗」是否通畅（MIUI 等系统可能默认把通知设为无弹窗） */
+function sendTestNotification(){
+  initLocalNotifications();
+  if(!LN){ toast('当前环境不支持系统通知'); return; }
+  requestNotifyPermission().then(function(granted){
+    if(!granted){ openNotifyHelpModal(); return; }
+    var t = Date.now() + 5000;
+    safeLN('schedule', [{ notifications: [{
+      id: 991001,
+      title: '⏰ WorkMemo 测试通知',
+      body: '如果你看到这条，说明后台弹窗已正常。可切到后台再观察。',
+      schedule: { at: new Date(t) },
+      sound: 'default',
+      smallIcon: 'ic_launcher',
+      iconColor: '#4F6EF7'
+    }] }]).then(function(){
+      toast('已发送，5 秒后留意通知栏（可切到后台测试）');
+    }).catch(function(){
+      toast('发送失败，请在系统设置中检查 WorkMemo 通知');
+    });
+  });
+}
+/** 打开通知权限引导弹窗（被拒绝或不可用时） */
+function openNotifyHelpModal(){
+  openConfirmModal('开启通知权限',
+    'WorkMemo 的到点提醒需要系统通知权限。\n\n若已拒绝，请前往：\n系统设置 → 通知 → WorkMemo → 允许通知，并打开「悬浮通知/弹窗」。',
+    function(){ /* 仅告知，用户自行去设置 */ }, '我知道了');
+}
+/** 刷新设置页里的通知权限状态文案 */
+function refreshNotifyPermUI(){
+  var el = document.getElementById('notifyPermMeta'); if(!el) return;
+  el.textContent = '检测中…';
+  queryNotifyPermission().then(function(st){
+    var map = { unavailable:'本机不支持', granted:'已开启', denied:'已拒绝（点此去开启）', prompt:'未请求（点此开启）' };
+    el.textContent = map[st] || '未请求（点此开启）';
+    el.style.color = (st === 'granted') ? 'var(--green)' : 'var(--text-2)';
+  }).catch(function(){ el.textContent = '未请求（点此开启）'; });
+}
+/** 注册前后台切换监听：回到前台时重新登记原生通知，防止被系统清理后漏提醒 */
+function initAppStateListener(){
+  try {
+    var Cap = (typeof window !== 'undefined' && window.Capacitor) ? window.Capacitor : null;
+    if(Cap && Cap.Plugins && Cap.Plugins.App && typeof Cap.Plugins.App.addListener === 'function'){
+      Cap.Plugins.App.addListener('appStateChange', function(state){
+        if(state && state.isActive){
+          try { rescheduleAllNotifications(); } catch(e){ /* 通知失败不影响主功能 */ }
+        }
+      });
+    }
+  } catch(e){ /* 无 App 插件也不影响主功能 */ }
 }
 var currentImgTarget=null;
 document.getElementById('imgFile').addEventListener('change', function(){
@@ -2233,6 +2371,8 @@ raceTimeout(bootstrapStore(), BOOT_STORE_TIMEOUT, BOOT_TIMEOUT_SENTINEL).then(fu
   maybeAutoShowQuote();
   /* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
   armAllReminders();
+  /* 注册前后台切换监听：回到前台时重登记原生通知，防止被系统清理后漏提醒 */
+  initAppStateListener();
   markBootOk();
   /* 系统层通知延后一拍：即便插件异常，也不能拖住首屏渲染 */
   setTimeout(function(){

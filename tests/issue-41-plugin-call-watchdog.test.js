@@ -105,10 +105,13 @@ test('存在 safeLN 包装函数，且调用前 mark、成功后 clear', () => {
   assert.match(seg, /\.then\(function\(r\)\{ clearPluginCall\(\); return r; \}\)/, 'resolve 后清除');
 });
 
-test('scheduleRecordNotification 通过 safeLN 发起 requestPermissions 与 schedule', () => {
+test('scheduleRecordNotification 经 safeLN 校验权限(checkPermissions)后登记 schedule', () => {
   const seg = html.slice(html.indexOf('function scheduleRecordNotification'), html.indexOf('function cancelRecordNotification'));
-  assert.match(seg, /safeLN\('requestPermissions',\s*\[\]\)/);
-  assert.match(seg, /safeLN\('schedule',\s*\[/);
+  /* Issue-43 修复：调度路径只校验已授权(checkPermissions)，真正的 requestPermissions 收敛到用户手势
+     (saveRecord / scheduleReminder / 设置页)，避免在启动期无手势调用被 Android 13 自动拒绝 */
+  assert.match(seg, /safeLN\('checkPermissions',\s*\[\]\)/, '调度前应校验权限');
+  assert.match(seg, /safeLN\('schedule',\s*\[/, '校验通过后应登记 schedule');
+  assert.ok(!/safeLN\('requestPermissions'/.test(seg), '调度函数内不应再直接请求权限');
 });
 
 test('cancelRecordNotification 通过 safeLN 发起 cancel', () => {

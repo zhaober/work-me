@@ -42,4 +42,6 @@
          未声明时系统只能给到「不精确」闹钟，提醒可能延迟数十分钟。 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 系统通知（弹窗提醒）：Android 13+ 必须声明并在运行时请求，否则通知不显示 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
