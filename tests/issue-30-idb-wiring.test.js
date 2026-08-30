@@ -77,16 +77,16 @@ test('源码：删除走 NoteDB.deleteNote（先删图再删记录）', () => {
 /* ---------------- 图片渲染路径 ---------------- */
 
 test('源码：图片渲染走 Blob → objectURL，不把 Base64 塞回业务数据', () => {
-  assert.match(html, /async function hydrateRecordImage\(rec\)/, '需把 Blob 转成可渲染 URL');
-  assert.match(html, /imageUrlCache\[rec\.image_id\] = url;/, '同一张图复用 URL，避免重复创建');
+  assert.match(html, /async function hydrateRecordImages\(rec\)/, '需把 Blob 转成可渲染 URL');
+  assert.match(html, /imageUrlCache\[imageId\] = url;/, '同一张图复用 URL，避免重复创建');
   assert.match(html, /URL\.revokeObjectURL\(/, '换图/删图后必须释放，防止内存泄漏');
   assert.match(html, /function releaseUnusedImageUrls\(\)/, '需清理无引用的 objectURL');
 });
 
 test('源码：选图入库走 saveImage，并按去重结果给出反馈', () => {
-  assert.match(html, /async function handleImagePick\(file\)/);
-  assert.match(html, /var res = await noteDB\.saveImage\(noteId, file\);/, '走压缩+去重管线');
-  assert.match(html, /editing\.data\.image_id = res\.imageId;/, '只把外键挂在记录上');
+  assert.match(html, /async function handleImagePick\(files\)/);
+  assert.match(html, /var res = await noteDB\.saveImage\(noteId, picked\[i\]\);/, '走压缩+去重管线');
+  assert.match(html, /editing\.data\.image_ids = normalizeImageIds\(ids\)/, '只把 id 数组外键挂在记录上');
   // 边界收紧到下一个函数定义：compressImageFile 紧跟其后，
   // 且它仍被「自定义背景」合法使用，不能算作记录图片的旧路径
   const pick = html.slice(
@@ -131,8 +131,8 @@ test('源码：优化存储改为清理孤儿图片（图片入库即压缩，�
 
 test('源码：导出剔除运行时 blob URL，并把图片一并带走', () => {
   assert.match(html, /async function buildExportRecords\(\)/);
-  assert.match(html, /delete rec\.image;/, 'blob URL 换设备即失效，不能写进导出文件');
-  assert.match(html, /rec\.image_base64=await blobToDataUrl\(blob\)/, '备份需能还原照片');
+  assert.match(html, /delete rec\.images;/, 'blob URL 换设备即失效，不能写进导出文件');
+  assert.match(html, /rec\.images_base64\.push\(blob \? await blobToDataUrl\(blob\) : null\)/, '备份需能还原全部照片');
   assert.match(html, /records:await buildExportRecords\(\)/, '导出走新的记录副本');
 });
 

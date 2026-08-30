@@ -86,7 +86,7 @@ test('源码：旧 dataURL 图片转成 Blob 存入图片仓库，不把 Base64 
   assert.match(mig, /r\.image\.indexOf\('data:image\/'\) === 0/, '识别 Base64 图片');
   assert.match(mig, /var blob = await dataUrlToBlob\(r\.image\)/, '先转成 Blob');
   assert.match(mig, /await noteDB\.saveImage\(k, blob\)/, '走新管线（压缩 + 去重）入库');
-  assert.match(mig, /r\.image_id = res\.imageId;/, '回填外键');
+  assert.match(mig, /r\.image_ids = normalizeImageIds\(ids\)/, '回填外键数组（多图结构）');
   assert.match(mig, /delete r\.image;/, 'Base64 不进新库');
 });
 

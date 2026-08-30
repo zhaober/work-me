@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAX_IMAGES_PER_RECORD, normalizeImageIds, recordImageIds, hasImage,
+  isImageIdUsed, collectUsedImageIds,
   recordToRow, rowToRecord, noteListRow, splitNoteRow, mergeNoteRows
 } from '../src/app-core.js';
 
@@ -82,6 +83,39 @@ test('hasImage：空数组与空值一律为 false', () => {
   assert.equal(hasImage({ image: null }), false);
   assert.equal(hasImage({ title: '无图' }), false);
   assert.equal(hasImage(null), false);
+});
+
+/* ---------- 引用判定：释放 objectURL 前的存活检查 ---------- */
+
+test('isImageIdUsed：第 2 张及之后的图也要能判定为「仍被引用」', () => {
+  const records = { r1: { image_ids: ['img_a', 'img_b', 'img_c'] } };
+  assert.equal(isImageIdUsed(records, 'img_a'), true);
+  assert.equal(isImageIdUsed(records, 'img_b'), true);
+  assert.equal(isImageIdUsed(records, 'img_c'), true);
+  assert.equal(isImageIdUsed(records, 'img_z'), false);
+});
+
+test('isImageIdUsed：兼容旧单值记录，空值一律 false', () => {
+  assert.equal(isImageIdUsed({ r1: { image_id: 'img_old' } }, 'img_old'), true);
+  assert.equal(isImageIdUsed({ r1: {} }, 'img_1'), false);
+  assert.equal(isImageIdUsed({}, 'img_1'), false);
+  assert.equal(isImageIdUsed(null, 'img_1'), false);
+  assert.equal(isImageIdUsed({ r1: { image_ids: ['img_a'] } }, null), false);
+});
+
+test('collectUsedImageIds：汇总全部记录的图片 id，去重且忽略空值', () => {
+  const used = collectUsedImageIds({
+    r1: { image_ids: ['img_a', 'img_b'] },
+    r2: { image_id: 'img_old' },
+    r3: { image_ids: ['img_a'] },
+    r4: {},
+  });
+  assert.deepEqual(Object.keys(used).sort(), ['img_a', 'img_b', 'img_old']);
+});
+
+test('collectUsedImageIds：空库返回空集合', () => {
+  assert.deepEqual(collectUsedImageIds({}), {});
+  assert.deepEqual(collectUsedImageIds(null), {});
 });
 
 /* ---------- 行映射：多图进库 / 出库 ---------- */

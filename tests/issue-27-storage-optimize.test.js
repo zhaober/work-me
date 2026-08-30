@@ -102,9 +102,9 @@ test('import 列表已引入存储优化纯函数', () => {
 test('记录图片以 WebP Blob 入库，不再以 dataURL 进入业务数据', () => {
   // 旧实现：直接 readAsDataURL 后塞进 editing.data.image（原始体积）
   assert.ok(!html.includes("rd.readAsDataURL(file); this.value='';"), '不应再直接读原图塞入');
-  // 新实现：走压缩 + 去重管线，记录上只留 image_id 外键
-  assert.match(html, /await noteDB\.saveImage\(noteId, file\)/, 'imgFile 应走压缩去重管线');
-  assert.match(html, /editing\.data\.image_id = res\.imageId;/, '记录只保存图片外键');
+  // 新实现：走压缩 + 去重管线，记录上只留 image_ids 外键数组（多图改造后）
+  assert.match(html, /await noteDB\.saveImage\(noteId, picked\[i\]\)/, 'imgFile 应走压缩去重管线');
+  assert.match(html, /editing\.data\.image_ids = normalizeImageIds\(ids\)/, '记录只保存图片 id 数组外键');
   const pick = html.slice(html.indexOf('async function handleImagePick'), html.indexOf('function compressImageFile'));
   assert.doesNotMatch(pick, /editing\.data\.image=dataUrl/, '不得再把 Base64 写进记录');
 });

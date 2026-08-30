@@ -95,6 +95,27 @@ export function recordImageIds(rec) {
   return normalizeImageIds(rec.image_id);
 }
 
+/**
+ * 某张图片是否仍被任意记录引用。
+ * 哈希去重会让多条记录共用同一张图，释放 objectURL 前必须先确认无人引用。
+ */
+export function isImageIdUsed(records, imageId) {
+  if (!imageId) return false;
+  var recs = records || {};
+  return Object.keys(recs).some(function (k) {
+    return recordImageIds(recs[k]).indexOf(imageId) >= 0;
+  });
+}
+
+/** 汇总当前被引用的全部图片 id（返回 { id: true } 形式的集合） */
+export function collectUsedImageIds(records) {
+  var used = {};
+  Object.keys(records || {}).forEach(function (k) {
+    recordImageIds(records[k]).forEach(function (id) { if (id) used[id] = true; });
+  });
+  return used;
+}
+
 /** 判断一条记录是否含有可预览的图片（多图数组或旧的单张字段） */
 export function hasImage(data) {
   if (!data) return false;
