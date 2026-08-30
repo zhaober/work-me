@@ -4,9 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>工作计划与复盘备忘录</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- 字体说明：本应用为纯离线应用，不使用任何远程字体。
+     远程样式表是渲染阻塞资源，在无法访问该域名的网络下会让 WebView 长时间白屏，
+     表现为「打不开软件」。这里统一使用系统字体栈，零请求、零延迟。 -->
 <style>
   :root{
     --bg:#F4F5FA; --card:#FFFFFF; --border:#ECECF1;
@@ -21,7 +21,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;}
   html,body{height:100%;}
-  body{font-family:"Inter","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,sans-serif;background:#E9EBF2;display:flex;justify-content:center;}
+  body{font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#E9EBF2;display:flex;justify-content:center;}
   .app{width:100%;max-width:480px;height:100%;background-color:var(--bg);background-image:var(--app-bg-image, none);background-size:cover;background-position:center;position:relative;overflow:hidden;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
   .app.fs-small{--app-font-scale:0.875;}
   .app.fs-normal{--app-font-scale:1;}

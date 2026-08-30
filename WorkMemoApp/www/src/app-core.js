@@ -258,6 +258,19 @@ export function getStyleLabel(s){ return STYLE_LABELS[normalizeStyle(s)] || '经
 export function getStyleTokens(style){ return STYLE_TOKENS[normalizeStyle(style)]; }
 
 /* ============ 用户设置（个性化）默认与规范化 ============ */
+
+/**
+ * 系统字体栈（离线可用）。
+ *
+ * 这里刻意不使用任何需要联网下载的字体（Inter / Noto Sans SC 等）。
+ * 原因：App 是纯本地离线应用，字体若走 <link rel="stylesheet"> 引入，
+ * 在无法访问该域名的网络环境下，样式表是**渲染阻塞资源**，
+ * WebView 会一直等到请求超时才绘制首屏，表现为「打开后长时间白屏」。
+ * 系统字体零请求、零延迟，中文与西文的观感也完全够用。
+ */
+export const SYSTEM_FONT_STACK =
+  '"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
+
 export const FONT_SIZE_OPTIONS = ['small','normal','large','huge'];
 export const TEXT_COLOR_OPTIONS = ['auto','white','black'];
 export const FONT_SIZE_SCALE = { small:0.875, normal:1, large:1.125, huge:1.25 };
