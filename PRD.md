@@ -1,8 +1,8 @@
 # 工作计划与复盘备忘录 App · 产品需求文档（PRD）
 
-> 版本：v1.5.4（本地版 · 启动稳定性修复 · 完整闭环）
+> 版本：v1.5.5（本地版 · 后台通知修复 + 文字颜色自定义）
 > 最近更新：2026-08-30
-> 状态：已实现并交付 Android Debug APK。v1.5.0 修复 4 项真机反馈（清除背景、实时时间、背景图文字可读性、退出后无提醒）；v1.5.1 消除白屏三类主因（移除 Google Fonts、崩溃捕获与看门狗、存储引导超时兜底）；**v1.5.3 经真机 logcat 锁定并修复闪退真正根因**——`LocalNotifications.cancel({})` 空载荷触发 Java 层 NPE，并补 v1.5.4 插件调用看门狗使同类原生崩溃可在面板中现形。全量单元测试 329 例通过
+> 状态：已实现并交付 Android Debug APK。v1.5.0 修复 4 项真机反馈（清除背景、实时时间、背景图文字可读性、退出后无提醒）；v1.5.1 消除白屏三类主因（移除 Google Fonts、崩溃捕获与看门狗、存储引导超时兜底）；**v1.5.3 经真机 logcat 锁定并修复闪退真正根因**——`LocalNotifications.cancel({})` 空载荷触发 Java 层 NPE，并补 v1.5.4 插件调用看门狗使同类原生崩溃可在面板中现形；**v1.5.5 修复「后台不弹通知」并放开文字颜色自定义**：Manifest 显式声明 `POST_NOTIFICATIONS`、权限请求收敛到用户手势（保存/设提醒/设置页）、切回前台重登记原生通知、设置页新增「通知权限」状态与「发送测试通知」；文字颜色由 auto/白/黑 放开为任意 `#RRGGBB` 自定义色 + 取色器 + 精选色板（叠照片背景时亮度自适应阴影）。全量单元测试 345 例通过
 > 平台：移动端 Android（设计基准 360×800，需自适应主流机型）
 
 ---
@@ -415,3 +415,5 @@ Settings {                                                // v1.2 个性化；v1
 *v1.5.3 相对 v1.5.1 的关键变更（闪退根因修复）：用户 logcat 显示 `FATAL EXCEPTION: CapacitorPlugins` + `JSArray.toList() on a null object reference`，定位为 `LocalNotifications.cancel({})` 空载荷——Capacitor `PluginCall.getArray` 字段缺失返回 null，插件未判空即 `toList()` 触发 NPE。修复：清空通知改为先 `getPending()` 取真实列表、经 `buildCancelPayload` 构造合法载荷、`shouldCallCancel` 守卫后才下发；通知 id 派生收敛到 `notificationIdFor`（值域 1..2147483646，规避 0 被视为未设置）；新增 5 个可测纯函数 + 19 例测试。全量 315 例通过。*
 
 *v1.5.4 相对 v1.5.3 的关键变更（插件调用看门狗）：所有 `LocalNotifications` 调用经 `safeLN` 包装——调用前 `markPluginCall`、成功 resolve 后 `clearPluginCall`；若调用在 Java 线程把进程带崩，残留标记由经典脚本在下次启动时转成崩溃面板线索。这是「Java 层崩溃 JS 无法捕获」结构性风险的防御层。新增 14 例测试（含「HTML 不再有裸 `LN.cancel/schedule/...` 调用」静态断言）。全量 329 例通过。详见 `WorkMemoApp/CRASH_ANALYSIS_2026-08-30.md`。*
+
+*v1.5.5 相对 v1.5.4 的关键变更（后台通知修复 + 文字颜色自定义）：**后台不弹通知**根因——Android 13+ 须显式声明 `POST_NOTIFICATIONS` 并在用户手势内请求，否则系统不弹窗；原调度路径在启动期无手势调用 `requestPermissions` 会被自动拒绝。修复：Manifest 显式声明 `POST_NOTIFICATIONS`；`scheduleRecordNotification` 调度前改 `checkPermissions` 校验而非请求；真正的 `requestPermissions` 收敛到保存/设提醒/设置页三处用户手势；注册 `appStateChange` 监听，切回前台时重登记原生通知防被系统清理；设置页新增「通知权限」实时状态与「发送测试通知」排查入口（MIUI 等系统可能默认把通知设为无弹窗，可用测试通知验证并引导去系统设置开启悬浮通知）。**文字颜色**：由 auto/白/黑 放开为支持任意 `#RRGGBB` 自定义色——新增 `isHexColor`/`normalizeTextColor`(接受十六进制)/`hexToRgb`/`relativeLuminance`/`customTextColorVars`/`textShadowForHex` 等纯函数；设置页改为「精选色板 chips + 取色器」组合；自定义色以亮度自适应阴影保证照片背景可读。新增 issue-42(自定义色)/issue-43(后台通知) 测试、修订 issue-41 断言；全量 345 例通过。*
