@@ -729,6 +729,42 @@ export const LEGACY_LS_KEY = 'work-memo-db-v1';
 export const CRASH_LOG_KEY = 'work-memo-crash-log';
 /** 启动阶段顺序，用于定位崩溃发生在哪一步 */
 export const BOOT_STAGES = ['html-parsed', 'module-loaded', 'store-loading', 'rendered'];
+/**
+ * 存储引导超时（毫秒）。
+ * IndexedDB 在个别设备上可能既不 resolve 也不 reject（存储权限被拒、
+ * 库损坏、隐私模式等），此时 Promise 永远挂起，.then/.catch 都不会执行，
+ * App 会一直停在空白页 —— 用户看到的就是「打不开软件」。
+ * 超时后降级到本地存储，保证 App 一定能打开。
+ */
+export const BOOT_STORE_TIMEOUT = 6000;
+/** 看门狗延迟（毫秒）。必须大于存储超时，否则会在降级完成前误弹错误面板 */
+export const BOOT_WATCHDOG_DELAY = 10000;
+/** 超时哨兵值，用于区分「正常完成」与「超时降级」 */
+export const BOOT_TIMEOUT_SENTINEL = '__BOOT_TIMEOUT__';
+
+/** 判断存储引导结果是否为「超时」哨兵 */
+export function isBootTimeout(result){ return result === BOOT_TIMEOUT_SENTINEL; }
+
+/**
+ * 给 Promise 加超时：超时后以哨兵值兑现，而不是永远挂起。
+ * 超时或原 Promise 兑现后都会清理定时器，避免悬挂 timer 拖住页面卸载。
+ * @param {*} promise 原始 Promise
+ * @param {number} ms 超时毫秒
+ * @param {*} sentinel 超时时的兑现值
+ */
+export function raceTimeout(promise, ms, sentinel){
+  var timer = null;
+  var guard = new Promise(function(resolve){
+    timer = setTimeout(function(){ resolve(sentinel); }, ms);
+  });
+  return Promise.race([Promise.resolve(promise), guard]).then(function(v){
+    clearTimeout(timer);
+    return v;
+  }, function(e){
+    clearTimeout(timer);
+    throw e;
+  });
+}
 
 /**
  * 把崩溃记录与所处启动阶段拼成可读报告，供错误面板展示与一键复制。

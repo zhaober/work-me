@@ -393,7 +393,7 @@
     setTimeout(function(){
       if(window.__WM_BOOT_OK__) return;
       window.__wmShowCrash();
-    }, 6000);
+    }, 10000);
   });
 })();
 </script>
@@ -628,7 +628,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -706,6 +706,8 @@ var LS_KEY = LEGACY_LS_KEY;
 /** 'idb' = IndexedDB（默认）；'ls' = 降级到 localStorage（环境不支持 IndexedDB 时） */
 var STORAGE_MODE = 'idb';
 var noteDB = new NoteDB();
+/** 启动已因超时降级后，忽略存储层迟到的回填，避免覆盖已渲染的数据 */
+var storeBootAborted = false;
 /** image_id -> objectURL。Blob 不能直接塞进 CSS，需转成 URL 才能渲染 */
 var imageUrlCache = {};
 /** 图片仓库统计缓存（异步刷新，供「我的」同步读取） */
@@ -717,6 +719,7 @@ function idbSupported(){
 
 /** 补齐记录字段：IndexedDB 以 id 为 keyPath，旧数据只有键没有 id 字段 */
 function applyDbShape(folders, records, events, settings){
+  if(storeBootAborted) return;   // 已超时降级，丢弃存储层迟到的结果
   if(folders) DB.folders = folders;
   if(records) DB.records = records;
   DB.events = events || [];
@@ -2173,7 +2176,15 @@ document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
 loadExportDirHandle().then(function(h){ if(h){ exportDirHandle=h; exportDirLabel=h.name||'所选文件夹'; } });
 /* 先等 IndexedDB 数据载入再渲染，否则会先闪一帧内置示例数据 */
 markBootStage('store-loading');
-bootstrapStore().then(function(){
+/* 存储层可能既不 resolve 也不 reject（权限被拒/库损坏/隐私模式），
+   那样 .then/.catch 都不会执行，App 会永远停在空白页。加超时兜底，保证一定能打开。 */
+raceTimeout(bootstrapStore(), BOOT_STORE_TIMEOUT, BOOT_TIMEOUT_SENTINEL).then(function(result){
+  if(isBootTimeout(result)){
+    if(window.__wmSaveCrash) window.__wmSaveCrash('promise', '存储载入超时（'+BOOT_STORE_TIMEOUT+'ms）', 'bootstrapStore 未在超时前完成，已降级到本地存储');
+    STORAGE_MODE = 'ls';
+    loadFromLocalStorage();
+    storeBootAborted = true;   // 同步语句，不会被迟到的 IndexedDB 结果插入
+  }
   loadSettings();
   renderHome(); renderCalendar(); renderStats();
   maybeAutoShowQuote();

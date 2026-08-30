@@ -26,7 +26,8 @@ test('源码：引入 NoteDB 并具备 idb / ls 双模式', () => {
 });
 
 test('源码：启动时先等 IndexedDB 载入再渲染，且失败不白屏', () => {
-  assert.match(html, /bootstrapStore\(\)\.then\(/, '启动改为异步引导');
+  // Issue-39 起：启动引导额外包了超时兜底，挂起时也能打开 App
+  assert.match(html, /raceTimeout\(bootstrapStore\(\),[\s\S]{0,90}?\.then\(/, '启动改为异步引导');
   const init = html.slice(html.indexOf('/* ============ INIT ============ */'));
   // 渲染必须发生在 bootstrapStore 之后，否则会先闪一帧内置示例数据
   assert.ok(init.indexOf('bootstrapStore()') < init.indexOf('renderHome()'),
