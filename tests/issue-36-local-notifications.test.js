@@ -52,8 +52,14 @@ test('deleteCurrentRecord 删除前先调用 cancelRecordNotification', () => {
 });
 
 test('启动流程 bootstrapStore 成功后调用 rescheduleAllNotifications', () => {
-  assert.match(html, /armAllReminders\(\);\s*\/\*\s*同时通过 Capacitor 本地通知/);
   assert.match(html, /rescheduleAllNotifications\(\)/);
+  // Issue-37 起：通知调度改为延后一拍并包 try/catch，
+  // 且必须先置 markBootOk() 再调度——插件异常不能拖住首屏，也不能被误判为启动失败
+  assert.match(
+    html,
+    /markBootOk\(\);\s*\/\*[\s\S]{0,120}?\*\/\s*setTimeout\(\s*function\(\s*\)\s*\{\s*try\s*\{\s*rescheduleAllNotifications\(\);\s*\}\s*catch/,
+    '通知调度应延后执行且受保护'
+  );
 });
 
 test('recordNotifyId 把任意记录 id 映射为正整数', () => {

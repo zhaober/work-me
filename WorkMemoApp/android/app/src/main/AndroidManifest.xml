@@ -38,4 +38,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 精确闹钟：Android 12+ 上要让提醒准时触发，必须在 Manifest 中声明。
+         未声明时系统只能给到「不精确」闹钟，提醒可能延迟数十分钟。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

@@ -333,6 +333,70 @@
   #app[data-style="minimal"] .card,#app[data-style="minimal"] .search,#app[data-style="minimal"] .frow,#app[data-style="minimal"] .scard,#app[data-style="minimal"] .rec,#app[data-style="minimal"] .me-card,#app[data-style="minimal"] .calcard,#app[data-style="minimal"] .checklist,#app[data-style="minimal"] .linked,#app[data-style="minimal"] .result-row,#app[data-style="minimal"] .ov-card{ border-color: transparent; box-shadow: none; }
   #app[data-style="depth"] .card,#app[data-style="depth"] .scard,#app[data-style="depth"] .rec,#app[data-style="depth"] .me-card,#app[data-style="depth"] .calcard,#app[data-style="depth"] .ov-card,#app[data-style="depth"] .result-row{ box-shadow: 0 10px 28px rgba(0,0,0,.14); border-color: transparent; }
 </style>
+<script>
+/* ============ 启动崩溃兜底（经典脚本，必须早于 module 脚本注册） ============
+   module 脚本一旦加载失败（import 解析错误、语法错误、CDN 不可达），
+   它自身的代码一行都不会执行；只有先注册的经典脚本能捕获到这类致命错误。
+   捕获结果写入 localStorage，并在启动超时后展示错误面板，
+   让用户看到「为什么打不开」，而不是只能看到一个闪退的空白。 */
+(function(){
+  var KEY = 'work-memo-crash-log';
+  window.__WM_STAGE__ = 'html-parsed';
+  window.__WM_BOOT_OK__ = false;
+  function save(kind, msg, stack){
+    try{
+      localStorage.setItem(KEY, JSON.stringify({
+        kind: kind,
+        message: String(msg == null ? '' : msg),
+        stack: String(stack == null ? '' : stack),
+        at: new Date().toISOString(),
+        ua: navigator.userAgent
+      }));
+    }catch(e){ /* 日志写不进去也不能影响启动 */ }
+  }
+  window.__wmSaveCrash = save;
+  window.__wmReadCrash = function(){
+    try{ var raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null; }
+    catch(e){ return null; }
+  };
+  window.__wmClearCrash = function(){ try{ localStorage.removeItem(KEY); }catch(e){} };
+  /* 必须用捕获阶段：img/script/link 的资源加载错误不冒泡，只在捕获阶段可见 */
+  window.addEventListener('error', function(ev){
+    if(ev && ev.target && ev.target !== window && ev.target.tagName){
+      save('resource', '加载失败：' + (ev.target.src || ev.target.href || ev.target.tagName), '');
+      return;
+    }
+    save('error', (ev && ev.message) || '未知错误', (ev && ev.error && ev.error.stack) || '');
+  }, true);
+  window.addEventListener('unhandledrejection', function(ev){
+    var r = ev && ev.reason;
+    save('promise', (r && r.message) || String(r), (r && r.stack) || '');
+  });
+  window.__wmShowCrash = function(){
+    var panel = document.getElementById('crashPanel');
+    if(!panel) return;
+    var rec = window.__wmReadCrash();
+    var report = window.__wmBuildReport ? window.__wmBuildReport(rec, window.__WM_STAGE__) : null;
+    var titleEl = document.getElementById('crashTitle');
+    var detailEl = document.getElementById('crashDetail');
+    if(titleEl) titleEl.textContent = (report && report.title) || '启动异常';
+    if(detailEl) detailEl.textContent = (report && report.detail) || ('阶段：' + window.__WM_STAGE__);
+    panel.style.display = 'flex';
+  };
+  window.__wmHideCrash = function(){
+    var panel = document.getElementById('crashPanel');
+    if(panel) panel.style.display = 'none';
+  };
+  /* 看门狗：超时仍未启动成功则展示面板。
+     启动成功时 App 会置 __WM_BOOT_OK__ = true 并隐藏面板，所以误报代价很低。 */
+  window.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){
+      if(window.__WM_BOOT_OK__) return;
+      window.__wmShowCrash();
+    }, 6000);
+  });
+})();
+</script>
 </head>
 <body>
 <div class="app" id="app">
@@ -551,12 +615,55 @@
   </div>
 </div>
 
+<!-- ============ 启动崩溃面板（默认隐藏，由崩溃兜底脚本在启动超时后展示） ============ -->
+<div id="crashPanel" style="display:none;position:fixed;inset:0;z-index:99999;background:#0E1014;color:#EDEFF4;flex-direction:column;padding:24px;box-sizing:border-box;overflow:hidden;font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;">
+  <div style="font-size:18px;font-weight:700;color:#FF6B6B;margin-bottom:6px;">启动异常</div>
+  <div id="crashTitle" style="font-size:14px;font-weight:600;color:#FFA94D;margin-bottom:12px;">正在读取错误信息…</div>
+  <pre id="crashDetail" style="flex:1;margin:0;font-size:12px;line-height:1.6;color:#C8CDD6;white-space:pre-wrap;word-break:break-all;background:#1A1D24;border-radius:12px;padding:12px;overflow:auto;"> </pre>
+  <div style="display:flex;gap:10px;margin-top:14px;">
+    <button data-crash-copy style="flex:1;padding:12px;border:none;border-radius:12px;background:#4F6EF7;color:#fff;font-size:14px;font-weight:600;">复制错误信息</button>
+    <button data-crash-clear style="flex:1;padding:12px;border:none;border-radius:12px;background:#2A2E37;color:#EDEFF4;font-size:14px;font-weight:600;">清除并重试</button>
+  </div>
+</div>
+
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
+
+/* ============ 启动阶段标记 + 崩溃面板交互 ============ */
+/* 能执行到这里，说明 module 与其依赖都已成功加载，可排除 import 链路故障 */
+window.__WM_STAGE__ = 'module-loaded';
+window.__wmBuildReport = buildCrashReport;
+function markBootStage(stage){ window.__WM_STAGE__ = stage; }
+/** 启动完成：置位成功标记并隐藏崩溃面板（看门狗展示的面板会被收起） */
+function markBootOk(){
+  window.__WM_STAGE__ = 'rendered';
+  window.__WM_BOOT_OK__ = true;
+  if(window.__wmHideCrash) window.__wmHideCrash();
+}
+(function bindCrashPanel(){
+  var panel = document.getElementById('crashPanel');
+  if(!panel) return;
+  panel.addEventListener('click', function(e){
+    if(e.target.closest('[data-crash-copy]')){
+      var rec = window.__wmReadCrash ? window.__wmReadCrash() : null;
+      var rep = buildCrashReport(rec, window.__WM_STAGE__);
+      var text = rep.title + '\n' + rep.detail;
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){ toast('错误信息已复制'); }, function(){ /* 复制失败不打扰 */ });
+      }
+      return;
+    }
+    if(e.target.closest('[data-crash-clear]')){
+      if(window.__wmClearCrash) window.__wmClearCrash();
+      location.reload();
+    }
+  });
+})();
+
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
@@ -1874,17 +1981,21 @@ function cancelAllRecordNotifications(){
   if(!LN) return Promise.resolve(false);
   return LN.cancel({}).then(function(){ return true; }).catch(function(){ return false; });
 }
-function rescheduleAllNotifications(){
-  initLocalNotifications();
-  if(!LN) return Promise.resolve(0);
-  return cancelAllRecordNotifications().then(function(){
+async function rescheduleAllNotifications(){
+  try{
+    initLocalNotifications();
+    if(!LN) return 0;
+    await cancelAllRecordNotifications();
     var total = 0;
     Object.keys(DB.records).forEach(function(k){
       var r = DB.records[k];
       if(r && r.reminder && r.date){ scheduleRecordNotification(r); total++; }
     });
     return total;
-  });
+  }catch(e){
+    // 系统通知不可用只是少一个提醒渠道，绝不能影响 App 本身
+    return 0;
+  }
 }
 var currentImgTarget=null;
 document.getElementById('imgFile').addEventListener('change', function(){
@@ -2061,18 +2172,25 @@ document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
 /* 恢复上次选择的导出文件夹（句柄持久化在 IndexedDB） */
 loadExportDirHandle().then(function(h){ if(h){ exportDirHandle=h; exportDirLabel=h.name||'所选文件夹'; } });
 /* 先等 IndexedDB 数据载入再渲染，否则会先闪一帧内置示例数据 */
+markBootStage('store-loading');
 bootstrapStore().then(function(){
   loadSettings();
   renderHome(); renderCalendar(); renderStats();
   maybeAutoShowQuote();
   /* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
   armAllReminders();
-  /* 同时通过 Capacitor 本地通知在系统层安排提醒，确保 App 不在前台也能收到 */
-  rescheduleAllNotifications();
+  markBootOk();
+  /* 系统层通知延后一拍：即便插件异常，也不能拖住首屏渲染 */
+  setTimeout(function(){
+    try { rescheduleAllNotifications(); } catch(e){ /* 通知失败不影响主功能 */ }
+  }, 500);
 }).catch(function(e){
   // 存储层异常不应让 App 白屏：用内存中的（示例/降级）数据继续启动
   loadSettings();
   renderHome(); renderCalendar(); renderStats();
+  markBootOk();
+  // App 已经起来了，但把异常留档，便于下次打开时排查
+  if(window.__wmSaveCrash) window.__wmSaveCrash('promise', (e && e.message) || String(e), (e && e.stack) || '');
 });
 </script>
 </body>

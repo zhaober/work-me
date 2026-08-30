@@ -712,6 +712,36 @@ export const STORES = {
 export const NOTE_INDEXES = ['by_update', 'by_folder', 'by_date'];
 /** localStorage 时代的旧键名，用于一次性迁移 */
 export const LEGACY_LS_KEY = 'work-memo-db-v1';
+/** 崩溃日志键。与业务数据分离：启动失败时业务库可能不可用，日志仍要能取到 */
+export const CRASH_LOG_KEY = 'work-memo-crash-log';
+/** 启动阶段顺序，用于定位崩溃发生在哪一步 */
+export const BOOT_STAGES = ['html-parsed', 'module-loaded', 'store-loading', 'rendered'];
+
+/**
+ * 把崩溃记录与所处启动阶段拼成可读报告，供错误面板展示与一键复制。
+ * 设计为纯函数，便于在 Node 下直接断言。
+ * @param {?object} rec 崩溃记录 {kind,message,stack,at,ua}
+ * @param {?string} stage 当前启动阶段
+ * @returns {{title:string, detail:string}}
+ */
+export function buildCrashReport(rec, stage){
+  var s = (typeof stage === 'string' && stage) ? stage : 'unknown';
+  var lines = [];
+  if(!rec || typeof rec !== 'object' || Array.isArray(rec)){
+    lines.push('阶段：' + s);
+    lines.push('未捕获到具体错误（可能是数据载入卡住，或进程被系统回收）。');
+    return { title: '启动未完成', detail: lines.join('\n') };
+  }
+  var kindMap = { error: '脚本错误', promise: '未处理的 Promise 异常', resource: '资源加载失败' };
+  var kind = kindMap[rec.kind] || (typeof rec.kind === 'string' && rec.kind) || '未知异常';
+  lines.push('类型：' + kind);
+  lines.push('阶段：' + s);
+  if(rec.at) lines.push('时间：' + String(rec.at));
+  if(rec.message) lines.push('信息：' + String(rec.message));
+  if(rec.stack) lines.push('堆栈：\n' + String(rec.stack));
+  if(rec.ua) lines.push('环境：' + String(rec.ua));
+  return { title: kind, detail: lines.join('\n') };
+}
 
 /**
  * 正文 + 清单 → 压缩后的 Uint8Array（LZString，纯文本压缩率极高）
