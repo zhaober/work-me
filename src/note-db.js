@@ -363,6 +363,18 @@ export class NoteDB {
   }
 
   /**
+   * 删除单张图片记录。
+   * 调用方必须先确认没有其它笔记引用它 —— 哈希去重会让多条笔记共用同一张 Blob，
+   * 直接删会把别人笔记里的图一起弄丢。
+   */
+  async deleteImage(id) {
+    if (!id) return 0;
+    await this.open();
+    await wrap(this.store(STORES.images, 'readwrite').delete(id));
+    return 1;
+  }
+
+  /**
    * 批量修正图片归属。
    * 场景：新建笔记时先选图、后保存 —— 此刻图片已入库但 note_id 还是 null，
    * 需在笔记落库后按 image_id 回填归属，否则会被当成孤儿清理掉。

@@ -116,6 +116,37 @@ export function collectUsedImageIds(records) {
   return used;
 }
 
+/**
+ * 生成编辑器里的多图宫格 HTML。
+ * 约定：urls 与 ids 等长、下标对齐，缺图的格子渲染成占位块而不是跳过，
+ * 否则用户删第 2 张时会因为下标错位删错图。达到上限后不再输出「添加」格。
+ * @param {string[]} ids 图片 id 列表
+ * @param {(string|null)[]} urls 与 ids 等长的可渲染 URL
+ * @param {number} max 单条记录上限
+ */
+export function buildImageGridHtml(ids, urls, max, opt) {
+  var o = opt || {};
+  var list = normalizeImageIds(ids);
+  var links = Array.isArray(urls) ? urls : [];
+  var limit = (typeof max === 'number' && isFinite(max) && max > 0) ? Math.floor(max) : MAX_IMAGES_PER_RECORD;
+  var addLabel = o.addLabel || '+ 添加图片';
+  var brokenLabel = o.brokenLabel || '图片已丢失';
+  var delLabel = o.delLabel || '×';
+  var h = '';
+  for (var i = 0; i < list.length; i++) {
+    var u = links[i];
+    h += '<div class="img-cell' + (u ? '' : ' is-broken') + '" data-img-index="' + i + '"'
+      + (u ? ' style="background-image:url(' + u + ')"' : '') + '>'
+      + (u ? '' : '<span>' + brokenLabel + '</span>')
+      + '<span class="img-del" data-img-del="' + i + '">' + delLabel + '</span>'
+      + '</div>';
+  }
+  if (list.length < limit) {
+    h += '<div class="img-cell img-add" data-img-add>' + addLabel + '</div>';
+  }
+  return h;
+}
+
 /** 判断一条记录是否含有可预览的图片（多图数组或旧的单张字段） */
 export function hasImage(data) {
   if (!data) return false;

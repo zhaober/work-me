@@ -97,9 +97,15 @@ test('源码：选图入库走 saveImage，并按去重结果给出反馈', () =
   assert.match(pick, /res\.deduped/, '命中去重要提示用户未额外占用空间');
 });
 
-test('源码：删除图片时同时清掉外键并落盘', () => {
-  assert.match(html, /editing\.data\.image_id=null; editing\.data\.image=null;/,
-    '只清 image 不清 image_id 会导致库里残留 Blob');
+test('源码：删除单张图片时清掉对应 id，且无人引用时真删存储', () => {
+  const delStart = html.indexOf('function deleteImageAt(index)');
+  const delEnd = html.indexOf('function paintEditor()', delStart);
+  assert.ok(delStart >= 0 && delEnd > delStart, '未定位到 deleteImageAt，边界锚点可能已失效');
+  const del = html.slice(delStart, delEnd);
+  assert.match(del, /ids\.splice\(index, 1\)/, '从 image_ids 中移除对应项');
+  assert.match(del, /isImageIdUsed\(DB\.records, removedId\)/, '删前确认没有别的记录在用它');
+  assert.match(del, /noteDB\.deleteImage\(removedId\)/, '无人引用时删掉 Blob，否则空间一直占着');
+  assert.match(del, /saveDB\(\)/, '删除后要落盘');
 });
 
 /* ---------------- 记录 id 与列表查询 ---------------- */

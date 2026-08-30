@@ -84,8 +84,12 @@ test('module 内按阶段推进启动标记，便于定位卡在哪一步', () =
 });
 
 test('rescheduleAllNotifications 整体受 try/catch 保护', () => {
-  const fnStart = html.indexOf('function rescheduleAllNotifications');
-  const fn = html.slice(fnStart, html.indexOf('var currentImgTarget', fnStart));
+  const fnStart = html.indexOf('async function rescheduleAllNotifications');
+  const endAt = html.indexOf('function initAppStateListener', fnStart);
+  // 锚点必须显式校验：indexOf 找不到时返回 -1，slice 会一路截到别处，
+  // 导致断言「看起来通过」实则什么都没测（多图改造删掉旧锚点后踩过这个坑）。
+  assert.ok(fnStart >= 0 && endAt > fnStart, '未定位到函数区间，边界锚点可能已失效');
+  const fn = html.slice(fnStart, endAt);
   assert.match(fn, /try\s*\{/, 'rescheduleAllNotifications 缺少 try');
   assert.match(fn, /catch/, 'rescheduleAllNotifications 缺少 catch');
 });
