@@ -62,9 +62,45 @@ export function deleteChecklistItem(items, index) {
   return items.filter((_, i) => i !== index);
 }
 
-/** 判断一条记录是否含有可预览的图片（data URL 字符串） */
+/** 单条记录最多可挂的图片张数（网格 3×3，上限同时防止内存被大图拖垮） */
+export const MAX_IMAGES_PER_RECORD = 9;
+
+/**
+ * 归一化图片 id 列表。
+ * 多图后记录以 image_ids 数组为准，但历史数据与旧导出包可能只有单个 image_id，
+ * 这里统一收敛成「去重、过滤非法、截断到上限」的字符串数组。
+ * @param {string[]|string|null|undefined} input 数组或单个 id
+ * @returns {string[]} 永远返回数组，无图时为空数组
+ */
+export function normalizeImageIds(input) {
+  var raw = Array.isArray(input) ? input : (typeof input === 'string' ? [input] : []);
+  var out = [];
+  for (var i = 0; i < raw.length; i++) {
+    var v = raw[i];
+    if (typeof v !== 'string' || !v.length) continue;
+    if (out.indexOf(v) >= 0) continue;
+    out.push(v);
+    if (out.length >= MAX_IMAGES_PER_RECORD) break;
+  }
+  return out;
+}
+
+/**
+ * 从记录对象读取图片 id 列表。
+ * 优先 image_ids（多图），回落 image_id（旧结构），保证读写旧库不丢图。
+ */
+export function recordImageIds(rec) {
+  if (!rec || typeof rec !== 'object') return [];
+  if (Array.isArray(rec.image_ids)) return normalizeImageIds(rec.image_ids);
+  return normalizeImageIds(rec.image_id);
+}
+
+/** 判断一条记录是否含有可预览的图片（多图数组或旧的单张字段） */
 export function hasImage(data) {
-  return !!(data && typeof data.image === 'string' && data.image.length > 0);
+  if (!data) return false;
+  if (Array.isArray(data.images) && data.images.some(function (u) { return typeof u === 'string' && u.length > 0; })) return true;
+  if (Array.isArray(data.image_ids) && data.image_ids.some(function (u) { return typeof u === 'string' && u.length > 0; })) return true;
+  return !!(typeof data.image === 'string' && data.image.length > 0);
 }
 
 /** 构建某文件夹下的可选内容列表（子文件夹 + 记录） */
@@ -903,7 +939,7 @@ export function decodeStyleData(u8){
 
 /**
  * 运行时记录对象 → IndexedDB 行
- * 正文/清单进 content_compressed，标签进 style_data，图片只留 image_id 外键。
+ * 正文/清单进 content_compressed，标签进 style_data，图片只留 image_ids 外键数组。
  */
 export function recordToRow(rec, nowMs){
   var r = rec || {};
@@ -917,14 +953,18 @@ export function recordToRow(rec, nowMs){
     time: r.time || '',
     reminder: (r.reminder === undefined || r.reminder === null) ? null : r.reminder,
     priority: typeof r.priority === 'number' ? r.priority : 0,
-    image_id: r.image_id || null,
+    image_ids: recordImageIds(r),
     update_time: typeof r.update_time === 'number' ? r.update_time : (isFinite(ts) ? ts : Date.now()),
     content_compressed: encodeNoteContent(r.body, r.checklist),
     style_data: encodeStyleData({ tags: Array.isArray(r.tags) ? r.tags : [] })
   };
 }
 
-/** IndexedDB 行 → 运行时记录对象（image 字段由运行时按 image_id 填充为 blob URL） */
+/**
+ * IndexedDB 行 → 运行时记录对象。
+ * 图片只取 id 数组，Blob 由运行时按 id 水合成 blob URL 填进 images（与 image_ids 等长）。
+ * 旧库行只有 image_id 单值，recordImageIds 会兜底成单元素数组。
+ */
 export function rowToRecord(row){
   if(!row) return null;
   var c = decodeNoteContent(row.content_compressed);
@@ -939,8 +979,8 @@ export function rowToRecord(row){
     reminder: (row.reminder === undefined) ? null : row.reminder,
     tags: Array.isArray(st.tags) ? st.tags : [],
     priority: typeof row.priority === 'number' ? row.priority : 0,
-    image_id: row.image_id || null,
-    image: null,
+    image_ids: recordImageIds(row),
+    images: [],
     checklist: c.checklist,
     body: c.body,
     update_time: row.update_time || 0
@@ -962,7 +1002,7 @@ export function noteListRow(row){
     time: row.time || '',
     priority: typeof row.priority === 'number' ? row.priority : 0,
     reminder: (row.reminder === undefined) ? null : row.reminder,
-    image_id: row.image_id || null,
+    image_ids: recordImageIds(row),
     update_time: row.update_time || 0
   };
 }
@@ -993,7 +1033,7 @@ export function splitNoteRow(row){
     time: row.time,
     reminder: row.reminder,
     priority: row.priority,
-    image_id: row.image_id,
+    image_ids: recordImageIds(row),
     update_time: row.update_time
   };
   var content = {
@@ -1016,7 +1056,7 @@ export function mergeNoteRows(meta, content){
     time: meta.time,
     reminder: meta.reminder,
     priority: meta.priority,
-    image_id: meta.image_id,
+    image_ids: recordImageIds(meta),
     update_time: meta.update_time,
     content_compressed: (content && content.content_compressed) || null,
     style_data: (content && content.style_data) || null

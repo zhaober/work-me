@@ -97,7 +97,7 @@ test('recordToRow：正文/清单进压缩字段，标签进样式字段，图�
   assert.equal(row.title, '完成 Q3 新品上线方案');
   assert.equal(row.folderId, 'work');
   assert.equal(row.priority, 1);
-  assert.equal(row.image_id, 'img_1');
+  assert.deepEqual(row.image_ids, ['img_1'], '多图改造后图片以 id 数组落库，旧单值 image_id 自动收敛为数组');
   assert.equal(row.update_time, 1_800_000_000_000, '未带 update_time 时用传入时间戳');
 
   assert.ok(row.content_compressed instanceof Uint8Array);
@@ -121,7 +121,7 @@ test('recordToRow：缺失字段走默认值，不产生 undefined 索引键', (
   assert.equal(row.time, '');
   assert.equal(row.reminder, null);
   assert.equal(row.priority, 0);
-  assert.equal(row.image_id, null);
+  assert.deepEqual(row.image_ids, [], '无图时为空数组而非 null，调用方可直接遍历');
   assert.deepEqual(decodeNoteContent(row.content_compressed), { body: '', checklist: [] });
   assert.deepEqual(decodeStyleData(row.style_data), { tags: [] });
 });
@@ -138,14 +138,14 @@ test('rowToRecord：完整还原为运行时记录对象', () => {
   assert.equal(rec.reminder, '18:00');
   assert.deepEqual(rec.tags, ['重要', '跟进']);
   assert.equal(rec.priority, 1);
-  assert.equal(rec.image_id, 'img_1');
+  assert.deepEqual(rec.image_ids, ['img_1']);
   assert.equal(rec.body, '上午：与研发对齐上线排期，确认灰度方案与时间窗。');
   assert.equal(rec.checklist.length, 2);
   assert.equal(rec.checklist[0].t, '拉齐研发排期');
   assert.equal(rec.checklist[0].c, true);
   assert.equal(rec.update_time, 1_800_000_000_000);
-  // image 由运行时按 image_id 填充为 blob URL，落库时不存
-  assert.equal(rec.image, null);
+  // images 由运行时按 image_ids 水合成 blob URL，落库时不存
+  assert.deepEqual(rec.images, []);
 });
 
 test('rowToRecord(null) 返回 null，调用方可安全判空', () => {
@@ -158,7 +158,7 @@ test('noteListRow：列表页只取轻量字段，不带正文与样式数据', 
   assert.equal(list.id, 'r1');
   assert.equal(list.title, '完成 Q3 新品上线方案');
   assert.equal(list.update_time, 1_800_000_000_000);
-  assert.equal(list.image_id, 'img_1');
+  assert.deepEqual(list.image_ids, ['img_1']);
 
   assert.equal(list.content_compressed, undefined, '列表不得加载压缩正文');
   assert.equal(list.style_data, undefined, '列表不得加载样式数据');
