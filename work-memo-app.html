@@ -387,6 +387,24 @@
     var panel = document.getElementById('crashPanel');
     if(panel) panel.style.display = 'none';
   };
+  /* 插件调用看门狗的「事后诊断」：
+     若上次启动时某个 Capacitor 插件调用把进程在回调前杀掉（Java 线程异常，
+     JS 的 .catch 抓不到），该标记会残留。这里检测到残留就转成一次可见的
+     崩溃线索，让「沉默的闪退」下次能在面板里现形。 */
+  (function checkPluginCallWatchdog(){
+    try{
+      var pc = localStorage.getItem('workmemo-plugin-call');
+      if(!pc) return;
+      var r = JSON.parse(pc);
+      if(r && r.plugin && r.method){
+        save('plugin',
+          '上一次调用 ' + r.plugin + '.' + r.method + ' 后进程异常退出',
+          'Capacitor 插件在独立的 Java 线程执行，异常直接杀进程且 JS 无法捕获。\n' +
+          '时间：' + (r.at || '未知') + '\n' +
+          '请抓 adb logcat -d | grep -A 40 "FATAL EXCEPTION" 获取真实堆栈。');
+      }
+    }catch(e){}
+  })();
   /* 看门狗：超时仍未启动成功则展示面板。
      启动成功时 App 会置 __WM_BOOT_OK__ = true 并隐藏面板，所以误报代价很低。 */
   window.addEventListener('DOMContentLoaded', function(){
@@ -628,7 +646,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, getFontScale, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -1950,6 +1968,18 @@ function initLocalNotifications(){
 function recordNotifyId(recordId){
   return notificationIdFor(recordId);
 }
+/** 安全的插件调用包装：调用前 markPluginCall，成功 resolve 后 clearPluginCall。
+ *  若某次调用在回调前把进程（Java 线程）带崩，mark 会残留，
+ *  下次启动由经典脚本的看门狗转成崩溃面板里的可见线索。 */
+function safeLN(method, args){
+  if(!LN || typeof LN[method] !== 'function') return Promise.resolve(null);
+  markPluginCall('LocalNotifications', method);
+  var ret;
+  try { ret = LN[method].apply(LN, args || []); }
+  catch(e){ clearPluginCall(); return Promise.reject(e); }
+  return Promise.resolve(ret).then(function(r){ clearPluginCall(); return r; })
+    .catch(function(e){ clearPluginCall(); throw e; });
+}
 function scheduleRecordNotification(record){
   return Promise.resolve().then(function(){
     initLocalNotifications();
@@ -1958,9 +1988,9 @@ function scheduleRecordNotification(record){
     if(!isValidNotificationId(nid)) return false;
     var target = combineDateTime(record.date, record.reminder);
     if(!isFinite(target) || target <= Date.now()) return false;
-    return LN.requestPermissions().then(function(p){
+    return safeLN('requestPermissions', []).then(function(p){
       if(p && p.display === 'denied') return false;
-      return LN.schedule({
+      return safeLN('schedule', [{
         notifications: [{
           id: nid,
           title: '⏰ ' + (record.title || '计划'),
@@ -1970,7 +2000,7 @@ function scheduleRecordNotification(record){
           smallIcon: 'ic_launcher',
           iconColor: '#4F6EF7'
         }]
-      }).then(function(){ return true; }).catch(function(e){ console.error('LN schedule', e); return false; });
+      }]).then(function(){ return true; }).catch(function(e){ console.error('LN schedule', e); return false; });
     });
   });
 }
@@ -1979,7 +2009,7 @@ function cancelRecordNotification(recordId){
   if(!LN || !recordId) return Promise.resolve(false);
   var nid = recordNotifyId(recordId);
   if(!isValidNotificationId(nid)) return Promise.resolve(false);
-  return LN.cancel({ notifications: [{ id: nid }] })
+  return safeLN('cancel', [{ notifications: [{ id: nid }] }])
     .then(function(){ return true; }).catch(function(){ return false; });
 }
 /**
@@ -1991,11 +2021,10 @@ function cancelRecordNotification(recordId){
 function cancelAllRecordNotifications(){
   initLocalNotifications();
   if(!LN) return Promise.resolve(false);
-  if(typeof LN.getPending !== 'function') return Promise.resolve(false);
-  return LN.getPending().then(function(pending){
+  return safeLN('getPending', []).then(function(pending){
     var payload = buildCancelPayload(pending);
     if(!shouldCallCancel(payload)) return false;
-    return LN.cancel(payload).then(function(){ return true; }).catch(function(){ return false; });
+    return safeLN('cancel', [payload]).then(function(){ return true; }).catch(function(){ return false; });
   }).catch(function(){ return false; });
 }
 async function rescheduleAllNotifications(){

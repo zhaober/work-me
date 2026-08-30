@@ -108,18 +108,18 @@ test('HTML 中不再出现 cancel 空对象调用（崩溃根因）', () => {
 test('cancelAllRecordNotifications 改为先 getPending 再构造载荷', () => {
   const seg = html.slice(html.indexOf('function cancelAllRecordNotifications'), html.indexOf('async function rescheduleAllNotifications'));
   assert.ok(seg.length > 0, '应能截取到 cancelAllRecordNotifications 函数体');
-  assert.match(seg, /getPending\s*\(/, '必须先读取待发列表');
+  assert.match(seg, /safeLN\('getPending',\s*\[\]\)/, '必须先读取待发列表');
   assert.match(seg, /buildCancelPayload\s*\(\s*pending\s*\)/, '必须用纯函数构造载荷');
   assert.match(seg, /shouldCallCancel\s*\(\s*payload\s*\)/, '必须在下发前做非空守卫');
   assert.ok(!/\.cancel\(\s*\{\s*\}\s*\)/.test(seg), '函数体内不得残留空 cancel');
 });
 
-test('cancelAllRecordNotifications 在 getPending 不可用时直接放弃，而不是退化为空 cancel', () => {
-  const seg = html.slice(html.indexOf('function cancelAllRecordNotifications'), html.indexOf('async function rescheduleAllNotifications'));
+test('插件方法不存在时 safeLN 安全降级，绝不回退到危险的空 cancel', () => {
+  const safe = html.slice(html.indexOf('function safeLN('), html.indexOf('function safeLN(') + 520);
   assert.match(
-    seg,
-    /typeof\s+LN\.getPending\s*!==\s*['"]function['"][\s\S]{0,60}?return\s+Promise\.resolve\(false\)/,
-    '插件不支持 getPending 时应安全跳过，而非回退到危险的 cancel({})'
+    safe,
+    /typeof\s+LN\[method\]\s*!==\s*['"]function['"][\s\S]{0,60}?return\s+Promise\.resolve\(null\)/,
+    '方法不存在时返回 null，调用方据此跳过，而非回退到危险的 cancel({})'
   );
 });
 

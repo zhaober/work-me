@@ -1120,3 +1120,66 @@ export function buildCancelPayload(pending){
 export function shouldCallCancel(payload){
   return !!(payload && Array.isArray(payload.notifications) && payload.notifications.length);
 }
+
+/* ============ 原生插件调用看门狗（把 Java 层崩溃变成可诊断线索） ============ */
+/**
+ * 背景：Capacitor 插件方法在独立 Java 线程（CapacitorPlugins）执行，若插件内部
+ * 抛未捕获异常，Bridge 直接杀进程，而该 Promise 永不 reject —— JS 的 try/catch
+ * 与 .catch() 都拦不住，崩溃会「沉默」发生。
+ *
+ * 策略：每次调用插件前写入标记 {plugin, method, at}；调用成功（Promise resolve）
+ * 后清除。若进程在回调前被杀，标记会残留。下次启动时检测到残留标记，即可推断
+ * 「上一次 <plugin>.<method> 调用把进程带崩了」，并展示到崩溃面板。
+ */
+export const PLUGIN_CALL_KEY = 'workmemo-plugin-call';
+
+function lsGet(key){
+  try { return (typeof localStorage !== 'undefined') ? localStorage.getItem(key) : null; }
+  catch(e){ return null; }
+}
+function lsSet(key, val){
+  try { if(typeof localStorage !== 'undefined') localStorage.setItem(key, val); }
+  catch(e){ /* 写不进不能影响主流程 */ }
+}
+function lsDel(key){
+  try { if(typeof localStorage !== 'undefined') localStorage.removeItem(key); }
+  catch(e){}
+}
+
+/** 标记正在调用的插件方法（调用前调用） */
+export function markPluginCall(plugin, method){
+  var rec = { plugin: String(plugin == null ? '' : plugin), method: String(method == null ? '' : method), at: new Date().toISOString() };
+  lsSet(PLUGIN_CALL_KEY, JSON.stringify(rec));
+  return rec;
+}
+
+/** 清除调用标记（调用成功 resolve 后调用） */
+export function clearPluginCall(){
+  lsDel(PLUGIN_CALL_KEY);
+}
+
+/** 读取残留标记（启动时诊断用）。返回 null 表示上一次无崩溃嫌疑 */
+export function readUnfinishedPluginCall(){
+  var raw = lsGet(PLUGIN_CALL_KEY);
+  if(!raw) return null;
+  try {
+    var rec = JSON.parse(raw);
+    if(rec && typeof rec.plugin === 'string' && rec.plugin && typeof rec.method === 'string' && rec.method) return rec;
+  } catch(e){}
+  return null;
+}
+
+/**
+ * 由残留标记构造一条崩溃线索，用于填充崩溃面板。
+ * 返回 null 表示没有可展示的插件崩溃嫌疑。
+ */
+export function buildPluginCrashHint(rec){
+  if(!rec || !rec.plugin || !rec.method) return null;
+  return {
+    kind: 'plugin',
+    message: '上一次调用 ' + rec.plugin + '.' + rec.method + ' 后进程异常退出',
+    stack: 'Capacitor 插件在独立的 Java 线程执行，异常会直接杀进程且 JS 无法捕获。\n' +
+           '时间：' + (rec.at || '未知') + '\n' +
+           '请抓 adb logcat -d | grep -A 40 "FATAL EXCEPTION" 获取真实堆栈精确定位。'
+  };
+}
