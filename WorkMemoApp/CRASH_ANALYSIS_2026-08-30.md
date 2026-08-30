@@ -259,3 +259,20 @@ Process{pid=1, ppid=2, cmdline=3(重复), uid=5}
 ```
 
 atrace 文本格式：`B|<pid>|<名称>`（开始）/ `E|<pid>`（结束）/ `C|<pid>|<名>|<值>`（计数）/ `S|F`（异步起止）。
+
+---
+
+## 八、Issue-41：插件调用看门狗（把沉默闪退变可见）
+
+「Java 线程崩溃 JS 抓不到」是结构性风险（见「〇」节机制说明），不止通知插件一处。
+v1.5.4 在 v1.5.3 止血后补了一层防御：
+
+- 所有 `LocalNotifications` 调用统一经 `safeLN(method, args)` 包装：
+  **调用前 `markPluginCall` 打标记，成功 resolve 后 `clearPluginCall` 清除**。
+- 若某次调用在回调前把进程（Java 线程）带崩，标记残留。
+- 页面解析时（经典脚本，早于 module）检测残留标记，写入崩溃日志。
+- 下次启动的崩溃面板会**点名嫌疑调用**，如：
+  「上一次调用 LocalNotifications.cancel 后进程异常退出 … 请抓 adb logcat …」
+
+这样即便未来出现新的插件崩溃，也无需再走一遍「Perfetto 定位 + logcat 取堆栈」，
+面板直接给出切入点。详见 `RELEASE_NOTES_v1.5.4.md`。
