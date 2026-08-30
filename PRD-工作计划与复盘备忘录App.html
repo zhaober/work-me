@@ -69,9 +69,9 @@
     <span class="pill-tag">PRODUCT REQUIREMENTS DOCUMENT</span>
     <h1>工作计划与复盘备忘录 App</h1>
     <div class="meta">
-      <span>版本：v1.5.1（本地版 · 启动稳定性修复）</span>
+      <span>版本：v1.5.4（本地版 · 启动稳定性修复 · 完整闭环）</span>
       <span>日期：2026-08-30</span>
-      <span>状态：已实现并交付 Android Debug APK；含真机反馈修复（v1.5.0）与启动稳定性专项（v1.5.1）</span>
+      <span>状态：已实现并交付 Android Debug APK；含真机反馈修复（v1.5.0）、启动稳定性专项（v1.5.1）、闪退根因修复（v1.5.3，经 logcat 定位 `cancel({})` 空载荷 NPE）、插件调用看门狗（v1.5.4）</span>
       <span>平台：移动端 Android（基准 360×800）</span>
     </div>
   </header>
@@ -378,7 +378,7 @@ Settings {                                                // v1.2 个性化；v1
         <li><b>插件版本差</b>：<code>@capacitor/local-notifications</code> 官方最新为 7.0.0，与 <code>@capacitor/core</code> 7.6.8 存在版本差（官方更新滞后），当前运行无异常。</li>
       </ul>
     </li>
-    <li><b>启动稳定性（v1.5.1）</b>：已消除「打开后白屏/打不开」的三类主因 —— 远程字体渲染阻塞（F-36）、存储层挂起无超时（F-37）、崩溃无可见反馈（F-35）。若崩溃发生在 WebView 加载之前的<b>原生层</b>，错误面板无法捕捉，仍需 <code>adb logcat</code> 定位。</li>
+    <li><b>启动稳定性（v1.5.4 已彻底修复）</b>：v1.5.1 消除「白屏/打不开」三类主因（远程字体渲染阻塞 F-36、存储层挂起无超时 F-37、崩溃无可见反馈 F-35）；但 v1.5.1 的修复方向有误——真机 logcat 显示闪退真正根因是 <code>LocalNotifications.cancel({})</code> 空载荷触发 Java 层 NPE（v1.5.3 修复），而非 Web 层问题。v1.5.4 进一步加插件调用看门狗：所有原生插件调用调用前留痕、成功后清除，若进程在 Java 线程被带崩，下次启动崩溃面板会点名嫌疑调用，使「沉默闪退」变为可诊断。</li>
     <li><b>云同步是否纳入后续版本？</b> 当前本地版不含；若需多设备，需补充账号体系（F-13）。</li>
     <li><b>存储容量（v1.4 已解除硬约束）</b>：业务数据迁至 IndexedDB 后不再受 localStorage ~5MB 配额限制。剩余风险：① IndexedDB 删除记录后不自动归还磁盘空间（按源整体管理，代码无法强制收缩，需手动清除站点数据）；② crypto.subtle 仅在 https / localhost 可用，file:// 下去重回落 FNV 指纹；③ 跨笔记去重复用图片时删除持有者会留下孤儿记录，由 cleanupOrphanImages 清理。</li>
     <li><b>迁移风险</b>：localStorage → IndexedDB 为一次性迁移，靠 meta 标记保证幂等；迁移后保留 localStorage 副本作回滚保险，不主动删除。</li>
@@ -394,6 +394,10 @@ Settings {                                                // v1.2 个性化；v1
     <b>v1.5.0 相对 v1.4 的关键变更</b>：修复「我的 → 自定义背景 → 清除」按钮无效（F-31）、新建记录时间改为实时当前时间（F-32）、新增字体大小与文字颜色设置以改善自定义背景下的文字可读性（F-33）、集成 Capacitor LocalNotifications 实现退出应用后的系统级提醒（F-34）。
     <br><br>
     <b>v1.5.1 相对 v1.5.0 的关键变更（启动稳定性专项）</b>：移除 Google Fonts 外部依赖以消除渲染阻塞导致的白屏（F-36）、新增启动崩溃捕获层与看门狗错误面板（F-35）、存储引导加 6 秒超时兜底以杜绝 IndexedDB 挂起导致的永久空白（F-37）。已用 Chrome DevTools Protocol 在真实计时下验证启动链路（stage=rendered、0 未捕获异常）。全量单元测试 296 例通过。
+    <br><br>
+    <b>v1.5.3 相对 v1.5.1 的关键变更（闪退根因修复）</b>：用户 logcat 显示 <code>FATAL EXCEPTION: CapacitorPlugins</code> + <code>JSArray.toList() on a null object reference</code>，定位为 <code>LocalNotifications.cancel({})</code> 空载荷——Capacitor <code>PluginCall.getArray</code> 字段缺失返回 null，插件未判空即 <code>toList()</code> 触发 NPE。修复：清空通知改为先 <code>getPending()</code> 取真实列表、经 <code>buildCancelPayload</code> 构造合法载荷、<code>shouldCallCancel</code> 守卫后才下发；通知 id 派生收敛到 <code>notificationIdFor</code>（值域 1..2147483646，规避 0 被视为未设置）；新增 5 个可测纯函数 + 19 例测试。全量 315 例通过。
+    <br><br>
+    <b>v1.5.4 相对 v1.5.3 的关键变更（插件调用看门狗）</b>：所有 <code>LocalNotifications</code> 调用经 <code>safeLN</code> 包装——调用前 <code>markPluginCall</code>、成功 resolve 后 <code>clearPluginCall</code>；若调用在 Java 线程把进程带崩，残留标记由经典脚本在下次启动时转成崩溃面板线索。这是「Java 层崩溃 JS 无法捕获」结构性风险的防御层。新增 14 例测试（含「HTML 不再有裸 <code>LN.cancel/schedule/...</code> 调用」静态断言）。全量 329 例通过。详见 <code>WorkMemoApp/CRASH_ANALYSIS_2026-08-30.md</code>。
   </footer>
 </div>
 </body>
