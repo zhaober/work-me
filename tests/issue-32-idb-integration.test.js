@@ -212,6 +212,34 @@ test('relinkImages：把「先选图后保存」的图片归属回填到笔记',
   assert.equal(await db.relinkImages(), 0);
 });
 
+test('relinkImages：多图记录的第 2 张及之后也能回填归属', { skip: !available && '需要 npm install' }, async () => {
+  const db = freshDB();
+  // 多图改造后一条笔记可挂多张，归属必须按 image_ids 数组逐个回填，
+  // 只认第一张会导致后续图片被 cleanupOrphanImages 当成孤儿删掉。
+  const rec = sampleRecord('r1', '多图计划', '正文');
+  rec.image_ids = ['img_1', 'img_2', 'img_3'];
+  await db.putNote(rec, 1_000);
+
+  const mkBlob = (n) => new Blob([new Uint8Array([n])], { type: 'image/webp' });
+  for (let i = 1; i <= 3; i++) {
+    await putRow(db, STORES.images, buildImageRow({
+      id: 'img_' + i, hash: await sha256Hex(mkBlob(i)), fullBlob: mkBlob(i), thumbBlob: mkBlob(i),
+      width: 10, height: 10, created: 1_000,
+    }, null));
+  }
+
+  const changed = await db.relinkImages();
+  assert.equal(changed, 3, '三张图都应回填归属');
+  for (let i = 1; i <= 3; i++) {
+    assert.equal((await db.getImage('img_' + i)).note_id, 'r1', '第 ' + i + ' 张图归属应回填');
+  }
+
+  // 关键回归：多图不得被误判为孤儿而清理
+  assert.equal(await db.cleanupOrphanImages(), 0, '已归属的多图不应被当成孤儿');
+  assert.ok(await db.getImage('img_2'), '第 2 张图必须存活');
+  assert.ok(await db.getImage('img_3'), '第 3 张图必须存活');
+});
+
 test('cleanupOrphanImages：清理无笔记引用的图片，保留被引用的', { skip: !available && '需要 npm install' }, async () => {
   const db = freshDB();
   await db.putNote(sampleRecord('r1', '笔记', '正文'), 1_000);
