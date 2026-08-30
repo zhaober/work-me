@@ -69,9 +69,9 @@
     <span class="pill-tag">PRODUCT REQUIREMENTS DOCUMENT</span>
     <h1>工作计划与复盘备忘录 App</h1>
     <div class="meta">
-      <span>版本：v1.5.5（本地版 · 后台通知修复 + 文字颜色自定义）</span>
+      <span>版本：v1.5.6（本地版 · v1.5.5 反馈修复）</span>
       <span>日期：2026-08-30</span>
-      <span>状态：已实现并交付 Android Debug APK；含真机反馈修复（v1.5.0）、启动稳定性专项（v1.5.1）、闪退根因修复（v1.5.3，经 logcat 定位 `cancel({})` 空载荷 NPE）、插件调用看门狗（v1.5.4）、后台通知修复与文字颜色自定义（v1.5.5）</span>
+      <span>状态：已实现并交付 Android Debug APK；含真机反馈修复（v1.5.0）、启动稳定性专项（v1.5.1）、闪退根因修复（v1.5.3，经 logcat 定位 `cancel({})` 空载荷 NPE）、插件调用看门狗（v1.5.4）、后台通知修复与文字颜色自定义（v1.5.5）、保存失败修复与编辑器视觉分区（v1.5.6）</span>
       <span>平台：移动端 Android（基准 360×800）</span>
     </div>
   </header>
@@ -400,6 +400,8 @@ Settings {                                                // v1.2 个性化；v1
     <b>v1.5.4 相对 v1.5.3 的关键变更（插件调用看门狗）</b>：所有 <code>LocalNotifications</code> 调用经 <code>safeLN</code> 包装——调用前 <code>markPluginCall</code>、成功 resolve 后 <code>clearPluginCall</code>；若调用在 Java 线程把进程带崩，残留标记由经典脚本在下次启动时转成崩溃面板线索。这是「Java 层崩溃 JS 无法捕获」结构性风险的防御层。新增 14 例测试（含「HTML 不再有裸 <code>LN.cancel/schedule/...</code> 调用」静态断言）。全量 329 例通过。详见 <code>WorkMemoApp/CRASH_ANALYSIS_2026-08-30.md</code>。
     <br><br>
     <b>v1.5.5 相对 v1.5.4 的关键变更（后台通知修复 + 文字颜色自定义）</b>：<b>后台不弹通知</b>根因——Android 13+ 须显式声明 <code>POST_NOTIFICATIONS</code> 并在用户手势内请求，原调度路径在启动期无手势调用 <code>requestPermissions</code> 会被自动拒绝。修复：Manifest 显式声明 <code>POST_NOTIFICATIONS</code>；<code>scheduleRecordNotification</code> 调度前改 <code>checkPermissions</code> 校验；真正的 <code>requestPermissions</code> 收敛到保存/设提醒/设置页三处用户手势；注册 <code>appStateChange</code> 监听，切回前台重登记原生通知；设置页新增「通知权限」实时状态与「发送测试通知」排查入口（MIUI 等系统可能默认把通知设为无弹窗，可用测试通知验证并引导去系统设置开启悬浮通知）。<b>文字颜色</b>：由 自动/白/黑 放开为任意 <code>#RRGGBB</code> 自定义色——新增 <code>isHexColor</code>/<code>normalizeTextColor</code>(接受十六进制)/<code>hexToRgb</code>/<code>relativeLuminance</code>/<code>customTextColorVars</code>/<code>textShadowForHex</code> 纯函数；设置页改为「精选色板 + 取色器」组合；自定义色以亮度自适应阴影保证照片背景可读。新增 issue-42/issue-43 测试、修订 issue-41 断言；全量 345 例通过。
+    <br><br>
+    <b>v1.5.6 相对 v1.5.5 的关键变更（真机反馈修复）</b>：<b>保存失败</b>——用户截图报错 <code>Failed to execute 'put' on 'IDBObjectStore': Evaluating the object store's key path yielded a value that is not a valid key</code>。根因为 <code>DB.records</code> 中存在 id 为 null/undefined/非字符串的历史脏记录，而 <code>notes</code>/<code>contents</code> 表 keyPath 为 <code>'id'</code>，导致整批 <code>putManyNotes</code> 失败。修复：新增 <code>repairRecordId</code> 纯函数，在 <code>persistToIdb</code> 写入前自检修复——id 缺失/非法但对象键合法时补为对象键（保持 UI 显示稳定），无法修复则删除该脏记录。<b>编辑器视觉分区</b>——用户反馈「设置提醒 / 日期」行与背景融为一体、看不出可点选，为该区域新增 <code>editor-meta-card</code> 卡片容器（背景 + 边框 + 圆角），并让计划与复盘两种编辑器保持一致。新增 issue-44 测试；全量 352 例通过。
   </footer>
 </div>
 </body>
