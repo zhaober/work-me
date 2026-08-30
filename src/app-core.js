@@ -1071,3 +1071,52 @@ export function makeImageId(nowMs, rand){
   var r = (typeof rand === 'number') ? Math.floor(Math.abs(rand) * 1e6) : Math.floor(Math.random() * 1e6);
   return 'img_' + t.toString(36) + '_' + r.toString(36);
 }
+
+/* ============ 原生通知 id 与取消载荷（ Capacitor LocalNotifications 安全调用） ============ */
+/**
+ * Android 通知 id 必须是 1..2147483646 的 32 位正整数：
+ * 0 会被插件当作「未设置」，负数/超界会在 AlarmManager 侧抛异常。
+ */
+export const MAX_NOTIFICATION_ID = 2147483646;
+
+/** 由记录 id 稳定派生出通知 id；无法派生时返回 0（0 表示不可用，调用方须跳过） */
+export function notificationIdFor(recordId){
+  var s = String((recordId === null || recordId === undefined) ? '' : recordId);
+  if(!s) return 0;
+  var h = 0;
+  for(var i = 0; i < s.length; i++) h = ((h * 31) + s.charCodeAt(i)) >>> 0;
+  return (h % MAX_NOTIFICATION_ID) + 1;
+}
+
+/** 通知 id 是否可用于原生调度 */
+export function isValidNotificationId(id){
+  var n = Number(id);
+  return Number.isInteger(n) && n > 0 && n <= MAX_NOTIFICATION_ID;
+}
+
+/**
+ * 由 getPending() 的返回值构造 cancel() 载荷。
+ * 返回 null 表示「不应发起 cancel 调用」——旧版插件在 notifications 缺失时会
+ * 走到 JSArray.toList() 触发 NPE，而这个 NPE 发生在 Java 的 CapacitorPlugins
+ * 线程，JS 的 try/catch 与 Promise.catch 都拦不住，会直接杀死进程。
+ */
+export function buildCancelPayload(pending){
+  if(!pending || !Array.isArray(pending.notifications) || !pending.notifications.length) return null;
+  var out = [];
+  for(var i = 0; i < pending.notifications.length; i++){
+    var item = pending.notifications[i];
+    if(!item) continue;
+    var id = Number(item.id);
+    if(!isValidNotificationId(id)) continue;
+    var dup = false;
+    for(var j = 0; j < out.length; j++){ if(out[j].id === id){ dup = true; break; } }
+    if(dup) continue;
+    out.push({ id: id });
+  }
+  return out.length ? { notifications: out } : null;
+}
+
+/** 载荷是否可安全下发给 cancel() */
+export function shouldCallCancel(payload){
+  return !!(payload && Array.isArray(payload.notifications) && payload.notifications.length);
+}

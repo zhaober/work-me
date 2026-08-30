@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { combineDateTime } from '../src/app-core.js';
+import { combineDateTime, notificationIdFor, MAX_NOTIFICATION_ID } from '../src/app-core.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(resolve(__dirname, '..', 'work-memo-app.html'), 'utf8');
@@ -62,13 +62,19 @@ test('启动流程 bootstrapStore 成功后调用 rescheduleAllNotifications', (
   );
 });
 
-test('recordNotifyId 把任意记录 id 映射为正整数', () => {
+test('recordNotifyId 把任意记录 id 映射到可用的 32 位正整数区间', () => {
+  // 实现已收敛到 app-core 的 notificationIdFor，此处验证行为而非实现方式
   const fn = html.substring(
     html.indexOf('function recordNotifyId(recordId)'),
     html.indexOf('function scheduleRecordNotification')
   );
-  assert.match(fn, /h\s*=\s*\(\(h \* 31\) \+ .*charCodeAt\(i\)\)\s*>>>\s*0/);
-  assert.match(fn, /%\s*2147483647/);
+  assert.match(fn, /return notificationIdFor\(recordId\);/);
+
+  for (const id of ['rec-001', 'r', 'x'.repeat(300), '中文记录', 42]) {
+    const n = notificationIdFor(id);
+    assert.ok(Number.isInteger(n) && n > 0 && n <= MAX_NOTIFICATION_ID, `${id} -> ${n} 越界`);
+    assert.strictEqual(n, notificationIdFor(id), '同一 id 必须稳定派生');
+  }
 });
 
 test('combineDateTime 正确处理 HH:MM 与日期', () => {
