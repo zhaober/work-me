@@ -62,9 +62,122 @@ export function deleteChecklistItem(items, index) {
   return items.filter((_, i) => i !== index);
 }
 
-/** 判断一条记录是否含有可预览的图片（data URL 字符串） */
+/** 单条记录最多可挂的图片张数（网格 3×3，上限同时防止内存被大图拖垮） */
+export const MAX_IMAGES_PER_RECORD = 9;
+
+/**
+ * 归一化图片 id 列表。
+ * 多图后记录以 image_ids 数组为准，但历史数据与旧导出包可能只有单个 image_id，
+ * 这里统一收敛成「去重、过滤非法、截断到上限」的字符串数组。
+ * @param {string[]|string|null|undefined} input 数组或单个 id
+ * @returns {string[]} 永远返回数组，无图时为空数组
+ */
+export function normalizeImageIds(input) {
+  var raw = Array.isArray(input) ? input : (typeof input === 'string' ? [input] : []);
+  var out = [];
+  for (var i = 0; i < raw.length; i++) {
+    var v = raw[i];
+    if (typeof v !== 'string' || !v.length) continue;
+    if (out.indexOf(v) >= 0) continue;
+    out.push(v);
+    if (out.length >= MAX_IMAGES_PER_RECORD) break;
+  }
+  return out;
+}
+
+/**
+ * 从记录对象读取图片 id 列表。
+ * 优先 image_ids（多图），回落 image_id（旧结构），保证读写旧库不丢图。
+ */
+export function recordImageIds(rec) {
+  if (!rec || typeof rec !== 'object') return [];
+  if (Array.isArray(rec.image_ids)) return normalizeImageIds(rec.image_ids);
+  return normalizeImageIds(rec.image_id);
+}
+
+/**
+ * 某张图片是否仍被任意记录引用。
+ * 哈希去重会让多条记录共用同一张图，释放 objectURL 前必须先确认无人引用。
+ */
+export function isImageIdUsed(records, imageId) {
+  if (!imageId) return false;
+  var recs = records || {};
+  return Object.keys(recs).some(function (k) {
+    return recordImageIds(recs[k]).indexOf(imageId) >= 0;
+  });
+}
+
+/** 汇总当前被引用的全部图片 id（返回 { id: true } 形式的集合） */
+export function collectUsedImageIds(records) {
+  var used = {};
+  Object.keys(records || {}).forEach(function (k) {
+    recordImageIds(records[k]).forEach(function (id) { if (id) used[id] = true; });
+  });
+  return used;
+}
+
+/**
+ * 生成编辑器里的多图宫格 HTML。
+ * 约定：urls 与 ids 等长、下标对齐，缺图的格子渲染成占位块而不是跳过，
+ * 否则用户删第 2 张时会因为下标错位删错图。达到上限后不再输出「添加」格。
+ * @param {string[]} ids 图片 id 列表
+ * @param {(string|null)[]} urls 与 ids 等长的可渲染 URL
+ * @param {number} max 单条记录上限
+ */
+export function buildImageGridHtml(ids, urls, max, opt) {
+  var o = opt || {};
+  var list = normalizeImageIds(ids);
+  var links = Array.isArray(urls) ? urls : [];
+  var limit = (typeof max === 'number' && isFinite(max) && max > 0) ? Math.floor(max) : MAX_IMAGES_PER_RECORD;
+  var addLabel = o.addLabel || '+ 添加图片';
+  var brokenLabel = o.brokenLabel || '图片已丢失';
+  var delLabel = o.delLabel || '×';
+  var h = '';
+  for (var i = 0; i < list.length; i++) {
+    var u = links[i];
+    h += '<div class="img-cell' + (u ? '' : ' is-broken') + '" data-img-index="' + i + '"'
+      + (u ? ' style="background-image:url(' + u + ')"' : '') + '>'
+      + (u ? '' : '<span>' + brokenLabel + '</span>')
+      + '<span class="img-del" data-img-del="' + i + '">' + delLabel + '</span>'
+      + '</div>';
+  }
+  if (list.length < limit) {
+    h += '<div class="img-cell img-add" data-img-add>' + addLabel + '</div>';
+  }
+  return h;
+}
+
+/**
+ * 在图片序列里循环移动：delta 为正往后翻、为负往前翻，到头回到另一端。
+ * 无图（total<=0）返回 -1，调用方据此判断"当前没有可看的图"。
+ */
+export function nextImageIndex(current, total, delta) {
+  var n = Math.floor(Number(total));
+  if (!isFinite(n) || n <= 0) return -1;
+  var d = Math.floor(Number(delta)) || 0;
+  var cur = Math.floor(Number(current));
+  if (!isFinite(cur)) cur = 0;
+  var i = ((cur % n) + n) % n;
+  return ((i + d) % n + n) % n;
+}
+
+/** 「第 2 / 5 张」计数文案；无图或下标非法时返回空串（调用方可据此隐藏计数） */
+export function formatImageCounter(index, total) {
+  var n = Math.floor(Number(total));
+  if (!isFinite(n) || n <= 0) return '';
+  // null / undefined 必须显式挡掉：Number(null) 是 0，会被误当成"正在看第一张"
+  if (index === null || index === undefined) return '';
+  var i = Math.floor(Number(index));
+  if (!isFinite(i) || i < 0 || i >= n) return '';
+  return '第 ' + (i + 1) + ' / ' + n + ' 张';
+}
+
+/** 判断一条记录是否含有可预览的图片（多图数组或旧的单张字段） */
 export function hasImage(data) {
-  return !!(data && typeof data.image === 'string' && data.image.length > 0);
+  if (!data) return false;
+  if (Array.isArray(data.images) && data.images.some(function (u) { return typeof u === 'string' && u.length > 0; })) return true;
+  if (Array.isArray(data.image_ids) && data.image_ids.some(function (u) { return typeof u === 'string' && u.length > 0; })) return true;
+  return !!(typeof data.image === 'string' && data.image.length > 0);
 }
 
 /** 构建某文件夹下的可选内容列表（子文件夹 + 记录） */
@@ -903,7 +1016,7 @@ export function decodeStyleData(u8){
 
 /**
  * 运行时记录对象 → IndexedDB 行
- * 正文/清单进 content_compressed，标签进 style_data，图片只留 image_id 外键。
+ * 正文/清单进 content_compressed，标签进 style_data，图片只留 image_ids 外键数组。
  */
 export function recordToRow(rec, nowMs){
   var r = rec || {};
@@ -917,14 +1030,18 @@ export function recordToRow(rec, nowMs){
     time: r.time || '',
     reminder: (r.reminder === undefined || r.reminder === null) ? null : r.reminder,
     priority: typeof r.priority === 'number' ? r.priority : 0,
-    image_id: r.image_id || null,
+    image_ids: recordImageIds(r),
     update_time: typeof r.update_time === 'number' ? r.update_time : (isFinite(ts) ? ts : Date.now()),
     content_compressed: encodeNoteContent(r.body, r.checklist),
     style_data: encodeStyleData({ tags: Array.isArray(r.tags) ? r.tags : [] })
   };
 }
 
-/** IndexedDB 行 → 运行时记录对象（image 字段由运行时按 image_id 填充为 blob URL） */
+/**
+ * IndexedDB 行 → 运行时记录对象。
+ * 图片只取 id 数组，Blob 由运行时按 id 水合成 blob URL 填进 images（与 image_ids 等长）。
+ * 旧库行只有 image_id 单值，recordImageIds 会兜底成单元素数组。
+ */
 export function rowToRecord(row){
   if(!row) return null;
   var c = decodeNoteContent(row.content_compressed);
@@ -939,8 +1056,8 @@ export function rowToRecord(row){
     reminder: (row.reminder === undefined) ? null : row.reminder,
     tags: Array.isArray(st.tags) ? st.tags : [],
     priority: typeof row.priority === 'number' ? row.priority : 0,
-    image_id: row.image_id || null,
-    image: null,
+    image_ids: recordImageIds(row),
+    images: [],
     checklist: c.checklist,
     body: c.body,
     update_time: row.update_time || 0
@@ -962,7 +1079,7 @@ export function noteListRow(row){
     time: row.time || '',
     priority: typeof row.priority === 'number' ? row.priority : 0,
     reminder: (row.reminder === undefined) ? null : row.reminder,
-    image_id: row.image_id || null,
+    image_ids: recordImageIds(row),
     update_time: row.update_time || 0
   };
 }
@@ -993,7 +1110,7 @@ export function splitNoteRow(row){
     time: row.time,
     reminder: row.reminder,
     priority: row.priority,
-    image_id: row.image_id,
+    image_ids: recordImageIds(row),
     update_time: row.update_time
   };
   var content = {
@@ -1016,7 +1133,7 @@ export function mergeNoteRows(meta, content){
     time: meta.time,
     reminder: meta.reminder,
     priority: meta.priority,
-    image_id: meta.image_id,
+    image_ids: recordImageIds(meta),
     update_time: meta.update_time,
     content_compressed: (content && content.content_compressed) || null,
     style_data: (content && content.style_data) || null

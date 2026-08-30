@@ -1,8 +1,8 @@
 # 工作计划与复盘备忘录 App · 产品需求文档（PRD）
 
-> 版本：v1.5.6（本地版 · v1.5.5 反馈修复）
+> 版本：v1.6.0（本地版 · 单条记录多图）
 > 最近更新：2026-08-30
-> 状态：已实现并交付 Android Debug APK。v1.5.0 修复 4 项真机反馈（清除背景、实时时间、背景图文字可读性、退出后无提醒）；v1.5.1 消除白屏三类主因（移除 Google Fonts、崩溃捕获与看门狗、存储引导超时兜底）；**v1.5.3 经真机 logcat 锁定并修复闪退真正根因**——`LocalNotifications.cancel({})` 空载荷触发 Java 层 NPE，并补 v1.5.4 插件调用看门狗使同类原生崩溃可在面板中现形；**v1.5.5 修复「后台不弹通知」并放开文字颜色自定义**；**v1.5.6 修复用户真机反馈**：保存时偶发 `IDBObjectStore` key path 非法（由历史脏记录 id=null/undefined 导致），新增 `repairRecordId` 在落盘前自检修复；编辑器「设置提醒 + 日期」行增加卡片容器与背景区分。全量单元测试 352 例通过
+> 状态：已实现并交付 Android Debug APK。v1.5.0 修复 4 项真机反馈（清除背景、实时时间、背景图文字可读性、退出后无提醒）；v1.5.1 消除白屏三类主因（移除 Google Fonts、崩溃捕获与看门狗、存储引导超时兜底）；**v1.5.3 经真机 logcat 锁定并修复闪退真正根因**——`LocalNotifications.cancel({})` 空载荷触发 Java 层 NPE，并补 v1.5.4 插件调用看门狗使同类原生崩溃可在面板中现形；**v1.5.5 修复「后台不弹通知」并放开文字颜色自定义**；**v1.5.6 修复用户真机反馈**：保存时偶发 `IDBObjectStore` key path 非法（由历史脏记录 id=null/undefined 导致），新增 `repairRecordId` 在落盘前自检修复；编辑器「设置提醒 + 日期」行增加卡片容器与背景区分。**v1.6.0 支持同一条计划添加多张图片（最多 9 张）**：记录结构由 `image_id` 单值升级为 `image_ids` 数组，编辑器改为 3 列图片宫格，支持一次多选、逐张删除/替换、大图左右翻页。全量单元测试 414 例通过
 > 平台：移动端 Android（设计基准 360×800，需自适应主流机型）
 
 ---
@@ -419,3 +419,5 @@ Settings {                                                // v1.2 个性化；v1
 *v1.5.5 相对 v1.5.4 的关键变更（后台通知修复 + 文字颜色自定义）：**后台不弹通知**根因——Android 13+ 须显式声明 `POST_NOTIFICATIONS` 并在用户手势内请求，否则系统不弹窗；原调度路径在启动期无手势调用 `requestPermissions` 会被自动拒绝。修复：Manifest 显式声明 `POST_NOTIFICATIONS`；`scheduleRecordNotification` 调度前改 `checkPermissions` 校验而非请求；真正的 `requestPermissions` 收敛到保存/设提醒/设置页三处用户手势；注册 `appStateChange` 监听，切回前台时重登记原生通知防被系统清理；设置页新增「通知权限」实时状态与「发送测试通知」排查入口（MIUI 等系统可能默认把通知设为无弹窗，可用测试通知验证并引导去系统设置开启悬浮通知）。**文字颜色**：由 auto/白/黑 放开为支持任意 `#RRGGBB` 自定义色——新增 `isHexColor`/`normalizeTextColor`(接受十六进制)/`hexToRgb`/`relativeLuminance`/`customTextColorVars`/`textShadowForHex` 等纯函数；设置页改为「精选色板 chips + 取色器」组合；自定义色以亮度自适应阴影保证照片背景可读。新增 issue-42(自定义色)/issue-43(后台通知) 测试、修订 issue-41 断言；全量 345 例通过。*
 
 *v1.5.6 相对 v1.5.5 的关键变更（真机反馈修复）：**保存失败**——用户截图报错 `Failed to execute 'put' on 'IDBObjectStore': Evaluating the object store's key path yielded a value that is not a valid key`。根因为 DB.records 中存在 id 为 null/undefined/非字符串的历史脏记录，导致 `putManyNotes` 整批失败。新增 `repairRecordId` 纯函数，在 `persistToIdb` 写入前自检修复：id 缺失/非法但对象键合法时补为对象键（保持 UI 稳定），无法修复则删除。**编辑器视觉分区**——用户反馈「设置提醒 / 日期」行与背景混为一体，为该区域新增 `editor-meta-card` 卡片容器（背景 + 边框 + 圆角），明确可点击输入。新增 issue-44 测试；全量 352 例通过。*
+
+*v1.6.0 相对 v1.5.6 的关键变更（单条记录多图）：用户提出「同一计划中能够添加多张图片」。**数据模型升级**——记录结构由 `image_id` 单值改为 `image_ids` 数组（`MAX_IMAGES_PER_RECORD = 9`），并新增 `normalizeImageIds`/`recordImageIds`/`isImageIdUsed`/`collectUsedImageIds`/`buildImageGridHtml`/`nextImageIndex`/`formatImageCounter` 等纯函数；`recordToRow`/`rowToRecord`/`noteListRow`/`splitNoteRow`/`mergeNoteRows` 全部改用数组，读旧库时自动把 `image_id` 兜底为单元素数组，保证升级不丢图。**存储层**——`relinkImages` 改为按 `image_ids` 数组回填归属，否则第 2 张及之后的图会被 `cleanupOrphanImages` 误判为孤儿删掉；新增 `noteDB.deleteImage`，删图时确认无其它记录引用后才真删 Blob（哈希去重会跨笔记共用图片）。**选择器 UI**——编辑器整块 `.imgblock` 换成 3 列正方形 `.img-grid` 宫格：已存图带删除角标，末尾「+ 添加图片」入口并在达到 9 张后自动隐藏；缺图渲染占位块而非跳过，保证下标与 `image_ids` 对齐；选图框加 `multiple` 支持一次多选，超出上限截断并提示。**大图浏览**——lightbox 底部新增导航条与「第 n / m 张」计数（单图时隐藏），支持左右滑动、方向键与按钮三种翻页，放大状态下横滑仍归拖动图片；「替换图片」语义改为换掉当前这一张。新增 issue-45/46/47/48 测试，并修订 issue-26/27/28/30/31/37 中被实现细节锁死的断言（另修复 issue-37 因锚点失效而静默误通过的脆弱断言）；全量 414 例通过。*

@@ -363,6 +363,18 @@ export class NoteDB {
   }
 
   /**
+   * 删除单张图片记录。
+   * 调用方必须先确认没有其它笔记引用它 —— 哈希去重会让多条笔记共用同一张 Blob，
+   * 直接删会把别人笔记里的图一起弄丢。
+   */
+  async deleteImage(id) {
+    if (!id) return 0;
+    await this.open();
+    await wrap(this.store(STORES.images, 'readwrite').delete(id));
+    return 1;
+  }
+
+  /**
    * 批量修正图片归属。
    * 场景：新建笔记时先选图、后保存 —— 此刻图片已入库但 note_id 还是 null，
    * 需在笔记落库后按 image_id 回填归属，否则会被当成孤儿清理掉。
@@ -371,7 +383,12 @@ export class NoteDB {
     await this.open();
     var notes = await this.listNotes();
     var owner = {};
-    notes.forEach(function (n) { if (n.image_id) owner[n.image_id] = n.id; });
+    // 多图后用 image_ids 数组建归属；旧库行只有 image_id 单值时兜底成单元素数组，
+    // 否则第 2 张及之后的图会因「找不到归属」被 cleanupOrphanImages 误删。
+    notes.forEach(function (n) {
+      var ids = Array.isArray(n.image_ids) ? n.image_ids : (n.image_id ? [n.image_id] : []);
+      ids.forEach(function (id) { if (id) owner[id] = n.id; });
+    });
     var images = (await wrap(this.store(STORES.images, 'readonly').getAll())) || [];
     var stale = images.filter(function (img) { return img.note_id !== owner[img.id]; });
     if (!stale.length) return 0;

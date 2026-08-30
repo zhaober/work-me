@@ -167,8 +167,14 @@
 .cdel:active{background:rgba(229,57,53,.1);}
   .cb{width:18px;height:18px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .cb.on{background:var(--accent);} .cb.off{background:transparent;border:1.5px solid var(--check-off);}
-  .imgblock{width:100%;height:140px;border-radius:12px;background:#E9EBF2;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:12px;cursor:pointer;background-size:cover;background-position:center;overflow:hidden;position:relative;}
-  .imgblock.has-img{color:transparent;}
+  /* 多图宫格：3 列正方形，末尾固定一个「+ 添加图片」入口，达到上限后自动隐藏 */
+  .img-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0;}
+  .img-cell{position:relative;width:100%;aspect-ratio:1/1;border-radius:12px;background-color:#E9EBF2;background-size:cover;background-position:center;overflow:hidden;cursor:pointer;}
+  /* 老 WebView 不支持 aspect-ratio 时退化为固定高度，避免格子塌陷成 0 高 */
+  @supports not (aspect-ratio: 1 / 1){ .img-cell{height:104px;} }
+  .img-cell.is-broken{display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:11px;text-align:center;padding:4px;}
+  .img-del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:14px;line-height:20px;text-align:center;cursor:pointer;z-index:2;}
+  .img-add{display:flex;align-items:center;justify-content:center;border:1px dashed var(--accent-stroke);background:transparent;color:var(--accent);font-size:12px;font-weight:500;}
   .divider{height:1px;background:var(--border);width:100%;}
   .tags{display:flex;gap:8px;flex-wrap:wrap;cursor:pointer;}
   .tag{background:var(--accent-soft);color:var(--accent);border-radius:14px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;}
@@ -281,7 +287,6 @@
   .sheet-cancel{margin-top:8px;font-weight:600;color:var(--text-2);background:var(--bg);}
 
   /* image lightbox */
-  .imgblock.has-img::after{content:'点击查看大图';position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:500;color:#fff;background:rgba(0,0,0,.5);padding:3px 10px;border-radius:10px;pointer-events:none;}
   .lightbox-overlay{position:absolute;inset:0;background:rgba(0,0,0,.92);z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
   .lightbox-overlay.show{display:flex;}
   .lightbox-overlay img{max-width:100%;max-height:72%;border-radius:12px;object-fit:contain;box-shadow:0 12px 40px rgba(0,0,0,.5);}
@@ -296,6 +301,8 @@
   .lightbox-overlay img{transform-origin:center center;will-change:transform;transition:transform .1s ease;}
   .lightbox-bar .lb-zoom-in,.lightbox-bar .lb-zoom-out{background:rgba(255,255,255,.22);font-size:20px;line-height:1;padding:8px 14px;}
   .lightbox-bar .lb-scale{color:#fff;font-size:13px;min-width:46px;text-align:center;}
+  .lightbox-bar .lb-nav{background:rgba(255,255,255,.22);font-size:20px;line-height:1;padding:8px 18px;}
+  .lightbox-bar .lb-count{color:#fff;font-size:13px;min-width:64px;text-align:center;}
 
   /* selection mode */
   .selbox{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--check-off);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
@@ -601,15 +608,20 @@
     </div>
   </div>
 
-  <input type="file" id="imgFile" accept="image/*" style="display:none" />
+  <input type="file" id="imgFile" accept="image/*" multiple style="display:none" />
   <input type="file" id="bgFile" accept="image/*" style="display:none" />
   <div class="toast" id="toast"></div>
 
   <!-- IMAGE LIGHTBOX -->
   <div class="lightbox-overlay" id="lightbox">
-    <div class="lightbox-hint">双指/滚轮缩放 · 放大后可拖动 · 点击空白处关闭</div>
+    <div class="lightbox-hint" id="lbHint">双指/滚轮缩放 · 放大后可拖动 · 点击空白处关闭</div>
     <div class="lightbox-stage" id="lightboxStage">
       <img id="lightboxImg" alt="图片预览" />
+    </div>
+    <div class="lightbox-bar" id="lbNav">
+      <button class="lb-nav" id="lbPrev" aria-label="上一张">‹</button>
+      <span class="lb-count" id="lbCount">1 / 1</span>
+      <button class="lb-nav" id="lbNext" aria-label="下一张">›</button>
     </div>
     <div class="lightbox-bar">
       <button class="lb-zoom-out" id="lbZoomOut" aria-label="缩小">−</button>
@@ -660,7 +672,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, repairRecordId, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, repairRecordId, MAX_IMAGES_PER_RECORD, normalizeImageIds, recordImageIds, isImageIdUsed, collectUsedImageIds, buildImageGridHtml, nextImageIndex, formatImageCounter, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -760,27 +772,45 @@ function applyDbShape(folders, records, events, settings){
     var r = DB.records[k];
     r.id = k;
     if(typeof r.priority !== 'number') r.priority = 0;
-    if(r.image_id === undefined) r.image_id = null;
-    if(r.image === undefined) r.image = null;
+    // 多图：image_ids 为持久化 id 数组，images 为运行时 blob URL（两者等长、下标对齐）
+    r.image_ids = recordImageIds(r);
+    if(!Array.isArray(r.images)) r.images = [];
+    delete r.image_id;   // 旧单值字段退役，统一走 image_ids
+    delete r.image;
   });
 }
 
-/** 把 IndexedDB 里的图片 Blob 转成可渲染的 objectURL，回填 record.image */
-async function hydrateRecordImage(rec){
-  if(!rec || !rec.image_id) return;
-  if(imageUrlCache[rec.image_id]){ rec.image = imageUrlCache[rec.image_id]; return; }
+/** 取某张图片可渲染的 objectURL；Blob 缺失返回 null（不抛，避免一张坏图拖垮整条记录） */
+async function resolveImageUrl(imageId){
+  if(!imageId) return null;
+  if(imageUrlCache[imageId]) return imageUrlCache[imageId];
   try{
-    var row = await noteDB.getImage(rec.image_id);
+    var row = await noteDB.getImage(imageId);
     var blob = row && (row.blob_full || row.blob_thumb);
-    if(!blob) return;
+    if(!blob) return null;
     var url = URL.createObjectURL(blob);
-    imageUrlCache[rec.image_id] = url;
-    rec.image = url;
-  }catch(e){ /* 单张图缺失不影响笔记本身 */ }
+    imageUrlCache[imageId] = url;
+    return url;
+  }catch(e){ return null; }
+}
+
+/**
+ * 把记录的全部图片 Blob 水合成 objectURL。
+ * images 与 image_ids 严格等长：某张图缺失时以 null 占位而非压缩数组，
+ * 否则下游按下标删图 / 预览会串位。
+ */
+async function hydrateRecordImages(rec){
+  if(!rec) return;
+  var ids = recordImageIds(rec);
+  rec.image_ids = ids;
+  rec.images = [];
+  for(var i=0;i<ids.length;i++){
+    rec.images.push(await resolveImageUrl(ids[i]));
+  }
 }
 async function hydrateImages(){
   var jobs = [];
-  Object.keys(DB.records).forEach(function(k){ jobs.push(hydrateRecordImage(DB.records[k])); });
+  Object.keys(DB.records).forEach(function(k){ jobs.push(hydrateRecordImages(DB.records[k])); });
   await Promise.all(jobs);
 }
 
@@ -790,10 +820,7 @@ async function hydrateImages(){
  */
 function releaseImageUrl(imageId){
   if(!imageId) return;
-  var stillUsed = Object.keys(DB.records).some(function(k){
-    return DB.records[k].image_id === imageId;
-  });
-  if(stillUsed) return;
+  if(isImageIdUsed(DB.records, imageId)) return;
   var url = imageUrlCache[imageId];
   if(url){
     try { URL.revokeObjectURL(url); } catch(e){}
@@ -803,10 +830,7 @@ function releaseImageUrl(imageId){
 
 /** 清理已无记录引用的 objectURL（换图 / 删图后的残留，避免内存缓慢增长） */
 function releaseUnusedImageUrls(){
-  var used = {};
-  Object.keys(DB.records).forEach(function(k){
-    var id = DB.records[k].image_id; if(id) used[id] = true;
-  });
+  var used = collectUsedImageIds(DB.records);
   Object.keys(imageUrlCache).forEach(function(imageId){
     if(!used[imageId]){
       try { URL.revokeObjectURL(imageUrlCache[imageId]); } catch(e){}
@@ -1003,15 +1027,17 @@ async function migrateLegacyData(){
       var k = keys[i];
       var r = legacy[k];
       r.id = k;
-      if(r.image_id === undefined) r.image_id = null;
+      var ids = recordImageIds(r);
       // 旧图片是 Base64：转成 Blob 走新管线（压缩 + 去重），不把 Base64 带进新库
       if(typeof r.image === 'string' && r.image.indexOf('data:image/') === 0){
         try{
           var blob = await dataUrlToBlob(r.image);
           var res = await noteDB.saveImage(k, blob);
-          r.image_id = res.imageId;
+          if(ids.indexOf(res.imageId) < 0) ids.push(res.imageId);
         }catch(e){ /* 单张图迁移失败不阻断整体 */ }
       }
+      r.image_ids = normalizeImageIds(ids);
+      delete r.image_id;   // 旧单值字段退役
       delete r.image;      // 运行时字段，不入库
     }
 
@@ -1623,13 +1649,20 @@ async function buildExportRecords(){
   for(var i=0;i<keys.length;i++){
     var k=keys[i];
     var rec=clone(DB.records[k]);
-    delete rec.image;
-    if(rec.image_id && STORAGE_MODE==='idb'){
-      try{
-        var row=await noteDB.getImage(rec.image_id);
-        var blob=row&&(row.blob_full||row.blob_thumb);
-        if(blob) rec.image_base64=await blobToDataUrl(blob);
-      }catch(e){ /* 单张图缺失不阻断整体导出 */ }
+    delete rec.images;                       // 运行时 blob URL，换台设备就失效
+    var ids=recordImageIds(rec);
+    rec.image_ids=ids;
+    delete rec.image_id;
+    if(ids.length && STORAGE_MODE==='idb'){
+      // 多图导出：与 image_ids 等长，缺失的留 null 占位以免还原时串位
+      rec.images_base64=[];
+      for(var j=0;j<ids.length;j++){
+        try{
+          var row=await noteDB.getImage(ids[j]);
+          var blob=row&&(row.blob_full||row.blob_thumb);
+          rec.images_base64.push(blob ? await blobToDataUrl(blob) : null);
+        }catch(e){ rec.images_base64.push(null); /* 单张图缺失不阻断整体导出 */ }
+      }
     }
     out[k]=rec;
   }
@@ -1848,6 +1881,96 @@ function renderChecklist(type, list, label){
   var items=list.map(function(c,i){ return '<div class="citem" data-ci="'+i+'"><div class="cb '+(c.c?'on':'off')+'" data-cb>'+(c.c?CHECK_SVG:'')+'</div><div class="t-body" contenteditable="true" data-citext style="outline:none;flex:1">'+escapeHtml(c.t)+'</div><div class="cdel" data-cdel="'+i+'">×</div></div>'; }).join('');
   return '<div class="checklist" id="'+type+'Checklist"><div class="t-name">'+label+'</div>'+items+'<div class="citem" data-addci style="cursor:pointer"><div class="cb off" style="visibility:hidden"></div><div class="t-body" style="color:var(--accent)">+ 添加项</div></div></div>';
 }
+/** 渲染编辑器里的多图宫格：已存图 + 末尾「+ 添加图片」格（达到上限后自动隐藏） */
+function renderEditorImages(){
+  if(!editing) return;
+  var grid = document.getElementById(editing.type+'ImgGrid');
+  if(!grid) return;
+  grid.innerHTML = buildImageGridHtml(
+    recordImageIds(editing.data),
+    Array.isArray(editing.data.images) ? editing.data.images : [],
+    MAX_IMAGES_PER_RECORD
+  );
+}
+
+/** 唤起系统相册 / 文件选择（多选由 input 的 multiple 提供） */
+function pickRecordImages(){
+  var f = document.getElementById('imgFile');
+  if(f) f.click();
+}
+
+/** 打开当前记录的第 index 张图（多图时可在 lightbox 内左右翻阅） */
+function openRecordImage(index){
+  if(!editing) return;
+  var before = lbIndex;
+  lbGoto(index);
+  if(lbIndex !== before && lbIndex === index) playSound('pop');
+}
+
+/** lightbox 当前可翻阅的图片总数 */
+function lbTotal(){
+  return (editing && Array.isArray(editing.data.images)) ? editing.data.images.length : 0;
+}
+
+/** 同步「第 n / m 张」计数与导航条：只有一张时不必出现左右切换 */
+function lbSyncNav(){
+  var nav=document.getElementById('lbNav'), cnt=document.getElementById('lbCount'), hint=document.getElementById('lbHint');
+  var total=lbTotal(), idx=lbIndex;
+  if(nav) nav.style.display = (total > 1) ? 'flex' : 'none';
+  if(cnt) cnt.textContent = (idx >= 0 && idx < total) ? ((idx+1)+' / '+total) : '1 / 1';
+  if(hint){
+    var counter = formatImageCounter(idx, total);
+    hint.textContent = counter
+      ? (counter + ' · 左右滑动切换 · 点击空白处关闭')
+      : '双指/滚轮缩放 · 放大后可拖动 · 点击空白处关闭';
+  }
+}
+
+/** 直接跳到第 i 张，同时复位缩放与平移 */
+function lbGoto(i){
+  if(!editing) return;
+  var urls = Array.isArray(editing.data.images) ? editing.data.images : [];
+  if(i < 0 || i >= urls.length || !urls[i]) return;
+  lbIndex = i;
+  document.getElementById('lightboxImg').src = urls[i];
+  lbReset();
+  document.getElementById('lightbox').classList.add('show');
+  lbSyncNav();
+}
+
+/** 相对翻页：delta 为 +1 看下一张、-1 看上一张，到头循环 */
+function lbStep(delta){
+  var next = nextImageIndex(lbIndex, lbTotal(), delta);
+  if(next < 0) return;
+  lbGoto(next);
+  playSound('pop');
+}
+
+/**
+ * 删除当前记录的第 index 张图。
+ * 哈希去重会让多条记录共用同一张 Blob：只有确认无人引用时才真删存储，
+ * 否则仅解除本条记录的引用，避免把别人笔记里的图一起删掉。
+ */
+function deleteImageAt(index){
+  if(!editing) return;
+  var ids = recordImageIds(editing.data);
+  if(index < 0 || index >= ids.length) return;
+  var removedId = ids.splice(index, 1)[0];
+  editing.data.image_ids = normalizeImageIds(ids);
+  var urls = Array.isArray(editing.data.images) ? editing.data.images : [];
+  if(index < urls.length) urls.splice(index, 1);
+  editing.data.images = urls;
+  if(removedId && !isImageIdUsed(DB.records, removedId) && STORAGE_MODE === 'idb'){
+    noteDB.deleteImage(removedId).catch(function(){});   // 真删，避免空间永久占用
+  }
+  releaseImageUrl(removedId);
+  if(lbIndex >= 0) closeLightbox();   // 索引已变，正在看的大图关掉
+  renderEditorImages();
+  saveDB();
+  playSound('delete');
+  toast('已删除 1 张图片');
+}
+
 function paintEditor(){
   if(!editing) return;
   var type=editing.type, d=editing.data;
@@ -1864,7 +1987,7 @@ function paintEditor(){
     '</div>';
     html+='<div class="t-body" contenteditable="true" id="'+type+'Body" style="outline:none">'+escapeHtml(d.body||'')+'</div>';
     html+=renderChecklist(type, d.checklist, '待办清单');
-    html+='<div class="imgblock" id="'+type+'Img">'+(d.image?'':'点击插入图片')+'</div>';
+    html+='<div class="img-grid" id="'+type+'ImgGrid"></div>';
     html+='<div class="divider"></div>';
     html+='<div class="tags" id="'+type+'Tags">'+renderTags(d.tags)+'<div class="tag" style="background:var(--accent-soft);color:var(--accent)">+ 添加</div></div>';
   } else {
@@ -1887,7 +2010,7 @@ function paintEditor(){
     html+='<div class="tags" id="'+type+'Tags">'+renderTags(d.tags)+'<div class="tag" style="background:var(--accent-soft);color:var(--accent)">+ 添加</div></div>';
   }
   document.getElementById(type+'Content').innerHTML=html;
-  if(d.image){ var ib=document.getElementById(type+'Img'); if(ib){ ib.style.backgroundImage='url('+d.image+')'; ib.classList.add('has-img'); ib.textContent=''; } }
+  renderEditorImages();
   bindEditor(type);
 }
 /**
@@ -1932,7 +2055,14 @@ function bindEditor(type){
   var tagsEl=document.getElementById(type+'Tags'); if(tagsEl) tagsEl.addEventListener('click', function(e){ var tag=e.target.closest('[data-tag-del]'); if(tag){ var t=tag.getAttribute('data-tag-del'); editing.data.tags=editing.data.tags.filter(function(x){return x!==t;}); paintEditor(); return; } if(e.target.classList.contains('tag') && e.target.textContent.indexOf('+')<0) return;
     openPromptModal('添加标签', '如：重要', '', function(v){ var t=(v||'').trim(); if(t){ editing.data.tags.push(t.replace(/^#/,'')); paintEditor(); } });
   });
-  var imgEl=document.getElementById(type+'Img'); if(imgEl) imgEl.addEventListener('click', function(){ if(hasImage(editing.data)){ lightboxType=type; openLightbox(editing.data.image); } else { currentImgTarget=type+'Img'; document.getElementById('imgFile').click(); } });
+  var ig=c.querySelector('#'+type+'ImgGrid');
+  if(ig) ig.addEventListener('click', function(e){
+    var del=e.target.closest('[data-img-del]');
+    if(del){ e.stopPropagation(); deleteImageAt(parseInt(del.getAttribute('data-img-del'),10)); return; }
+    if(e.target.closest('[data-img-add]')){ pickRecordImages(); return; }
+    var cell=e.target.closest('[data-img-index]');
+    if(cell) openRecordImage(parseInt(cell.getAttribute('data-img-index'),10));
+  });
   var lk=c.querySelector('[data-link-choose]'); if(lk) lk.addEventListener('click', chooseLinkPlan);
 }
 function chooseLinkPlan(){
@@ -2197,38 +2327,61 @@ function initAppStateListener(){
     }
   } catch(e){ /* 无 App 插件也不影响主功能 */ }
 }
-var currentImgTarget=null;
 document.getElementById('imgFile').addEventListener('change', function(){
-  var file=this.files&&this.files[0]; if(!file) return;
-  this.value='';
-  handleImagePick(file).catch(function(e){
+  var files = this.files && this.files.length ? Array.prototype.slice.call(this.files) : [];
+  this.value='';   // 立即清空，否则连选同一张图不会触发 change
+  if(!files.length) return;
+  handleImagePick(files).catch(function(e){
     toast('图片插入失败：'+((e&&e.message)||'未知原因'));
   });
 });
 /**
- * 选图入库（新管线）：
+ * 选图入库（新管线，支持一次选多张并追加）：
  *   WebP 压缩 → SHA-256 去重 → Blob 存 IndexedDB → 转 objectURL 供渲染
  * 图片不再以 Base64 dataURL 混在业务数据里（体积 +33%，且整块进内存）。
+ * 超出 MAX_IMAGES_PER_RECORD 的部分直接丢弃并提示，避免静默失败。
  */
-async function handleImagePick(file){
+async function handleImagePick(files){
   if(!editing) return;
+  var list = Array.isArray(files) ? files : [files];
+  if(!list.length) return;
   var noteId = editing.id || editing.data.id || null;
-  var res = await noteDB.saveImage(noteId, file);
-  editing.data.image_id = res.imageId;
-  var row = await noteDB.getImage(res.imageId);
-  var blob = row && (row.blob_full || row.blob_thumb);
-  if(blob){
-    var url = URL.createObjectURL(blob);
-    imageUrlCache[res.imageId] = url;
-    editing.data.image = url;
+  var ids = recordImageIds(editing.data);
+
+  // 替换模式：换掉 lightbox 里正在看的那一张，只取本次选择的第一张
+  var replaceAt = pendingReplaceIndex; pendingReplaceIndex = -1;
+  var replacing = (replaceAt >= 0 && replaceAt < ids.length);
+  if(replacing) list = list.slice(0, 1);
+
+  var room = MAX_IMAGES_PER_RECORD - ids.length + (replacing ? 1 : 0);
+  if(room <= 0){ toast('单条记录最多 '+MAX_IMAGES_PER_RECORD+' 张图片'); return; }
+  var picked = list.slice(0, room);
+  var overflow = list.length - picked.length;
+
+  var added = 0, deduped = 0, bytes = 0, removedId = null;
+  for(var i=0;i<picked.length;i++){
+    var res = await noteDB.saveImage(noteId, picked[i]);
+    if(res.deduped) deduped++; else bytes += (res.bytes||0);
+    if(replacing){ removedId = ids[replaceAt]; ids[replaceAt] = res.imageId; replacing = false; added++; }
+    else if(ids.indexOf(res.imageId) < 0){ ids.push(res.imageId); added++; }
   }
-  var el=document.getElementById(currentImgTarget||'');
-  if(el && editing.data.image){ el.style.backgroundImage='url('+editing.data.image+')'; el.classList.add('has-img'); el.textContent=''; }
+  editing.data.image_ids = normalizeImageIds(ids);
+  await hydrateRecordImages(editing.data);   // 保证 images 与 image_ids 等长且下标对齐
+  // 被换掉的旧图若无人引用就真删，否则空间会一直占着
+  if(removedId && !isImageIdUsed(DB.records, removedId) && STORAGE_MODE === 'idb'){
+    noteDB.deleteImage(removedId).catch(function(){});
+  }
+  if(removedId) releaseImageUrl(removedId);
+  renderEditorImages();
   playSound('pop');
   saveDB();
-  toast(res.deduped
-    ? '这张图已存过，已复用（不额外占用空间）'
-    : ('已压缩保存 · ' + formatBytes(res.bytes)));
+
+  if(!added && deduped){ toast('这些图已经添加过了'); return; }
+  if(removedId){ toast('已替换这张图片'); return; }
+  var msg = '已添加 '+added+' 张 · '+formatBytes(bytes);
+  if(deduped) msg += '（'+deduped+' 张重复已复用）';
+  if(overflow > 0) msg += '，超出上限 '+overflow+' 张未加入';
+  toast(msg);
 }
 /**
  * 读取图片并压缩：按最大边长等比缩放后转 JPEG data URL。
@@ -2270,7 +2423,8 @@ document.getElementById('bgFile').addEventListener('change', function(){
   });
 });
 /* lightbox for previewing uploaded images */
-var lightboxType=null;
+var lbIndex=-1;              /* 当前浏览的是记录的第几张图，-1 表示未在看图 */
+var pendingReplaceIndex=-1;  /* 待替换的图下标（lightbox 点「替换」后等用户选图） */
 /* lightbox for previewing uploaded images (with zoom / pan) */
 var lbScale=1, lbTX=0, lbTY=0;          // 当前缩放倍率与平移偏移（屏幕像素）
 function applyLbTransform(){
@@ -2285,20 +2439,31 @@ function lbSetScale(s){
   applyLbTransform();
 }
 function lbZoomBy(delta){ lbSetScale(nextImageScale(lbScale, delta, IMAGE_VIEWER_LIMITS.minScale, IMAGE_VIEWER_LIMITS.maxScale)); }
-function openLightbox(src){ playSound('pop'); var lb=document.getElementById('lightbox'); document.getElementById('lightboxImg').src=src; lbReset(); lb.classList.add('show'); }
-function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; lbReset(); }
+function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; lbReset(); lbIndex=-1; if(typeof lbSyncNav==='function') lbSyncNav(); }
 document.getElementById('lbClose').addEventListener('click', closeLightbox);
 document.getElementById('lightbox').addEventListener('click', function(e){ if(e.target===this || e.target.classList.contains('lightbox-hint')) closeLightbox(); });
 document.getElementById('lbZoomIn').addEventListener('click', function(){ lbZoomBy(IMAGE_VIEWER_LIMITS.step); });
 document.getElementById('lbZoomOut').addEventListener('click', function(){ lbZoomBy(-IMAGE_VIEWER_LIMITS.step); });
-document.getElementById('lbReplace').addEventListener('click', function(){ if(lightboxType){ currentImgTarget=lightboxType+'Img'; document.getElementById('imgFile').click(); } closeLightbox(); });
-document.getElementById('lbDel').addEventListener('click', function(){
-  if(lightboxType && editing){
-    editing.data.image_id=null; editing.data.image=null;
-    var el=document.getElementById(lightboxType+'Img'); if(el){ el.style.backgroundImage=''; el.classList.remove('has-img'); el.textContent='点击插入图片'; }
-    saveDB();
-  }
+document.getElementById('lbReplace').addEventListener('click', function(){
+  // 多图下「替换」= 换掉当前正在看的那一张，而不是整条记录只剩一张图
+  pendingReplaceIndex = lbIndex;
   closeLightbox();
+  pickRecordImages();
+});
+document.getElementById('lbDel').addEventListener('click', function(){
+  // 多图下只删当前正在看的那一张，不是整条记录的图片
+  var idx = lbIndex;
+  closeLightbox();
+  if(idx >= 0) deleteImageAt(idx);
+});
+document.getElementById('lbPrev').addEventListener('click', function(){ lbStep(-1); });
+document.getElementById('lbNext').addEventListener('click', function(){ lbStep(1); });
+/* 键盘：左右翻页、Esc 关闭（桌面调试与无障碍） */
+document.addEventListener('keydown', function(e){
+  if(!document.getElementById('lightbox').classList.contains('show')) return;
+  if(e.key==='ArrowLeft'){ e.preventDefault(); lbStep(-1); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); lbStep(1); }
+  else if(e.key==='Escape'){ closeLightbox(); }
 });
 /* 滚轮缩放（桌面） */
 var lbStage=document.getElementById('lightboxStage');
@@ -2308,10 +2473,13 @@ document.getElementById('lightboxImg').addEventListener('dblclick', function(){ 
 /* 触摸：双指捏合缩放 + 单指拖动平移（仅在已放大时） */
 (function(){
   function dist(t){ var dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
-  var pinch=null, pan=null;
+  var pinch=null, pan=null, swipe=null;
   lbStage.addEventListener('touchstart', function(e){
-    if(e.touches.length===2){ pinch={ d:dist(e.touches), scale:lbScale }; }
-    else if(e.touches.length===1 && lbScale>1){ pan={ x:e.touches[0].clientX, y:e.touches[0].clientY, tx:lbTX, ty:lbTY }; }
+    if(e.touches.length===2){ pinch={ d:dist(e.touches), scale:lbScale }; swipe=null; }
+    else if(e.touches.length===1){
+      swipe={ x:e.touches[0].clientX, y:e.touches[0].clientY };
+      if(lbScale>1) pan={ x:e.touches[0].clientX, y:e.touches[0].clientY, tx:lbTX, ty:lbTY };
+    }
   }, { passive:false });
   lbStage.addEventListener('touchmove', function(e){
     if(e.touches.length===2 && pinch){
@@ -2324,7 +2492,16 @@ document.getElementById('lightboxImg').addEventListener('dblclick', function(){ 
       applyLbTransform();
     }
   }, { passive:false });
-  lbStage.addEventListener('touchend', function(e){ if(e.touches.length<2) pinch=null; if(e.touches.length===0) pan=null; });
+  lbStage.addEventListener('touchend', function(e){
+    // 未放大时的横向快滑 = 翻页；放大状态下横滑属于拖动图片，不能抢
+    if(swipe && lbScale<=1.001 && e.changedTouches && e.changedTouches.length){
+      var t0=e.changedTouches[0], dx=t0.clientX-swipe.x, dy=t0.clientY-swipe.y;
+      if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5) lbStep(dx<0?1:-1);
+    }
+    swipe=null;
+    if(e.touches.length<2) pinch=null;
+    if(e.touches.length===0) pan=null;
+  });
 })();
 /* custom important-day events */
 function openEventModal(){
@@ -2363,7 +2540,7 @@ document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
     playSound('tap');
     var act=toolbarBtnMap[i];
     if(act==='checklist'){ playSound('toggle'); editing.data.checklist.push({t:'新事项',c:false}); paintEditor(); }
-    else if(act==='image'){ currentImgTarget=editing.type+'Img'; document.getElementById('imgFile').click(); }
+    else if(act==='image'){ pickRecordImages(); }
     else if(act==='link' && editing.type==='review'){ chooseLinkPlan(); }
   });
 });
