@@ -147,6 +147,31 @@ export function buildImageGridHtml(ids, urls, max, opt) {
   return h;
 }
 
+/**
+ * 在图片序列里循环移动：delta 为正往后翻、为负往前翻，到头回到另一端。
+ * 无图（total<=0）返回 -1，调用方据此判断"当前没有可看的图"。
+ */
+export function nextImageIndex(current, total, delta) {
+  var n = Math.floor(Number(total));
+  if (!isFinite(n) || n <= 0) return -1;
+  var d = Math.floor(Number(delta)) || 0;
+  var cur = Math.floor(Number(current));
+  if (!isFinite(cur)) cur = 0;
+  var i = ((cur % n) + n) % n;
+  return ((i + d) % n + n) % n;
+}
+
+/** 「第 2 / 5 张」计数文案；无图或下标非法时返回空串（调用方可据此隐藏计数） */
+export function formatImageCounter(index, total) {
+  var n = Math.floor(Number(total));
+  if (!isFinite(n) || n <= 0) return '';
+  // null / undefined 必须显式挡掉：Number(null) 是 0，会被误当成"正在看第一张"
+  if (index === null || index === undefined) return '';
+  var i = Math.floor(Number(index));
+  if (!isFinite(i) || i < 0 || i >= n) return '';
+  return '第 ' + (i + 1) + ' / ' + n + ' 张';
+}
+
 /** 判断一条记录是否含有可预览的图片（多图数组或旧的单张字段） */
 export function hasImage(data) {
   if (!data) return false;

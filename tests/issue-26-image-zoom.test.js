@@ -97,6 +97,7 @@ test('缩放交互已接入：滚轮 / 双击 / 捏合 / 拖动', () => {
 });
 
 test('打开/关闭 lightbox 时倍率复位到 1x', () => {
-  assert.match(html, /function openLightbox\(src\)\{[\s\S]*?lbReset\(\)/, '打开时复位倍率');
+  // 多图改造后打开大图走 lbGoto（按索引），openLightbox 单参版本已移除
+  assert.match(html, /function lbGoto\(i\)\{[\s\S]*?lbReset\(\)/, '打开时复位倍率');
   assert.match(html, /function closeLightbox\(\)\{[\s\S]*?lbReset\(\)/, '关闭时复位倍率');
 });

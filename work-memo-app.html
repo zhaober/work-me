@@ -301,6 +301,8 @@
   .lightbox-overlay img{transform-origin:center center;will-change:transform;transition:transform .1s ease;}
   .lightbox-bar .lb-zoom-in,.lightbox-bar .lb-zoom-out{background:rgba(255,255,255,.22);font-size:20px;line-height:1;padding:8px 14px;}
   .lightbox-bar .lb-scale{color:#fff;font-size:13px;min-width:46px;text-align:center;}
+  .lightbox-bar .lb-nav{background:rgba(255,255,255,.22);font-size:20px;line-height:1;padding:8px 18px;}
+  .lightbox-bar .lb-count{color:#fff;font-size:13px;min-width:64px;text-align:center;}
 
   /* selection mode */
   .selbox{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--check-off);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
@@ -612,9 +614,14 @@
 
   <!-- IMAGE LIGHTBOX -->
   <div class="lightbox-overlay" id="lightbox">
-    <div class="lightbox-hint">双指/滚轮缩放 · 放大后可拖动 · 点击空白处关闭</div>
+    <div class="lightbox-hint" id="lbHint">双指/滚轮缩放 · 放大后可拖动 · 点击空白处关闭</div>
     <div class="lightbox-stage" id="lightboxStage">
       <img id="lightboxImg" alt="图片预览" />
+    </div>
+    <div class="lightbox-bar" id="lbNav">
+      <button class="lb-nav" id="lbPrev" aria-label="上一张">‹</button>
+      <span class="lb-count" id="lbCount">1 / 1</span>
+      <button class="lb-nav" id="lbNext" aria-label="下一张">›</button>
     </div>
     <div class="lightbox-bar">
       <button class="lb-zoom-out" id="lbZoomOut" aria-label="缩小">−</button>
@@ -665,7 +672,7 @@
 
 <script type="module">
 "use strict";
-import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, repairRecordId, MAX_IMAGES_PER_RECORD, normalizeImageIds, recordImageIds, isImageIdUsed, collectUsedImageIds, buildImageGridHtml, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
+import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, repairRecordId, MAX_IMAGES_PER_RECORD, normalizeImageIds, recordImageIds, isImageIdUsed, collectUsedImageIds, buildImageGridHtml, nextImageIndex, formatImageCounter, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -1892,13 +1899,51 @@ function pickRecordImages(){
   if(f) f.click();
 }
 
-/** 打开当前记录的第 index 张图 */
+/** 打开当前记录的第 index 张图（多图时可在 lightbox 内左右翻阅） */
 function openRecordImage(index){
   if(!editing) return;
+  var before = lbIndex;
+  lbGoto(index);
+  if(lbIndex !== before && lbIndex === index) playSound('pop');
+}
+
+/** lightbox 当前可翻阅的图片总数 */
+function lbTotal(){
+  return (editing && Array.isArray(editing.data.images)) ? editing.data.images.length : 0;
+}
+
+/** 同步「第 n / m 张」计数与导航条：只有一张时不必出现左右切换 */
+function lbSyncNav(){
+  var nav=document.getElementById('lbNav'), cnt=document.getElementById('lbCount'), hint=document.getElementById('lbHint');
+  var total=lbTotal(), idx=lbIndex;
+  if(nav) nav.style.display = (total > 1) ? 'flex' : 'none';
+  if(cnt) cnt.textContent = (idx >= 0 && idx < total) ? ((idx+1)+' / '+total) : '1 / 1';
+  if(hint){
+    var counter = formatImageCounter(idx, total);
+    hint.textContent = counter
+      ? (counter + ' · 左右滑动切换 · 点击空白处关闭')
+      : '双指/滚轮缩放 · 放大后可拖动 · 点击空白处关闭';
+  }
+}
+
+/** 直接跳到第 i 张，同时复位缩放与平移 */
+function lbGoto(i){
+  if(!editing) return;
   var urls = Array.isArray(editing.data.images) ? editing.data.images : [];
-  if(!urls[index]) return;
-  lbIndex = index;
-  openLightbox(urls[index]);
+  if(i < 0 || i >= urls.length || !urls[i]) return;
+  lbIndex = i;
+  document.getElementById('lightboxImg').src = urls[i];
+  lbReset();
+  document.getElementById('lightbox').classList.add('show');
+  lbSyncNav();
+}
+
+/** 相对翻页：delta 为 +1 看下一张、-1 看上一张，到头循环 */
+function lbStep(delta){
+  var next = nextImageIndex(lbIndex, lbTotal(), delta);
+  if(next < 0) return;
+  lbGoto(next);
+  playSound('pop');
 }
 
 /**
@@ -2394,8 +2439,7 @@ function lbSetScale(s){
   applyLbTransform();
 }
 function lbZoomBy(delta){ lbSetScale(nextImageScale(lbScale, delta, IMAGE_VIEWER_LIMITS.minScale, IMAGE_VIEWER_LIMITS.maxScale)); }
-function openLightbox(src){ playSound('pop'); var lb=document.getElementById('lightbox'); document.getElementById('lightboxImg').src=src; lbReset(); lb.classList.add('show'); }
-function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; lbReset(); lbIndex=-1; }
+function closeLightbox(){ var lb=document.getElementById('lightbox'); lb.classList.remove('show'); document.getElementById('lightboxImg').src=''; lbReset(); lbIndex=-1; if(typeof lbSyncNav==='function') lbSyncNav(); }
 document.getElementById('lbClose').addEventListener('click', closeLightbox);
 document.getElementById('lightbox').addEventListener('click', function(e){ if(e.target===this || e.target.classList.contains('lightbox-hint')) closeLightbox(); });
 document.getElementById('lbZoomIn').addEventListener('click', function(){ lbZoomBy(IMAGE_VIEWER_LIMITS.step); });
@@ -2412,6 +2456,15 @@ document.getElementById('lbDel').addEventListener('click', function(){
   closeLightbox();
   if(idx >= 0) deleteImageAt(idx);
 });
+document.getElementById('lbPrev').addEventListener('click', function(){ lbStep(-1); });
+document.getElementById('lbNext').addEventListener('click', function(){ lbStep(1); });
+/* 键盘：左右翻页、Esc 关闭（桌面调试与无障碍） */
+document.addEventListener('keydown', function(e){
+  if(!document.getElementById('lightbox').classList.contains('show')) return;
+  if(e.key==='ArrowLeft'){ e.preventDefault(); lbStep(-1); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); lbStep(1); }
+  else if(e.key==='Escape'){ closeLightbox(); }
+});
 /* 滚轮缩放（桌面） */
 var lbStage=document.getElementById('lightboxStage');
 lbStage.addEventListener('wheel', function(e){ e.preventDefault(); lbZoomBy(e.deltaY<0 ? IMAGE_VIEWER_LIMITS.step/2 : -IMAGE_VIEWER_LIMITS.step/2); }, { passive:false });
@@ -2420,10 +2473,13 @@ document.getElementById('lightboxImg').addEventListener('dblclick', function(){ 
 /* 触摸：双指捏合缩放 + 单指拖动平移（仅在已放大时） */
 (function(){
   function dist(t){ var dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.sqrt(dx*dx+dy*dy); }
-  var pinch=null, pan=null;
+  var pinch=null, pan=null, swipe=null;
   lbStage.addEventListener('touchstart', function(e){
-    if(e.touches.length===2){ pinch={ d:dist(e.touches), scale:lbScale }; }
-    else if(e.touches.length===1 && lbScale>1){ pan={ x:e.touches[0].clientX, y:e.touches[0].clientY, tx:lbTX, ty:lbTY }; }
+    if(e.touches.length===2){ pinch={ d:dist(e.touches), scale:lbScale }; swipe=null; }
+    else if(e.touches.length===1){
+      swipe={ x:e.touches[0].clientX, y:e.touches[0].clientY };
+      if(lbScale>1) pan={ x:e.touches[0].clientX, y:e.touches[0].clientY, tx:lbTX, ty:lbTY };
+    }
   }, { passive:false });
   lbStage.addEventListener('touchmove', function(e){
     if(e.touches.length===2 && pinch){
@@ -2436,7 +2492,16 @@ document.getElementById('lightboxImg').addEventListener('dblclick', function(){ 
       applyLbTransform();
     }
   }, { passive:false });
-  lbStage.addEventListener('touchend', function(e){ if(e.touches.length<2) pinch=null; if(e.touches.length===0) pan=null; });
+  lbStage.addEventListener('touchend', function(e){
+    // 未放大时的横向快滑 = 翻页；放大状态下横滑属于拖动图片，不能抢
+    if(swipe && lbScale<=1.001 && e.changedTouches && e.changedTouches.length){
+      var t0=e.changedTouches[0], dx=t0.clientX-swipe.x, dy=t0.clientY-swipe.y;
+      if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5) lbStep(dx<0?1:-1);
+    }
+    swipe=null;
+    if(e.touches.length<2) pinch=null;
+    if(e.touches.length===0) pan=null;
+  });
 })();
 /* custom important-day events */
 function openEventModal(){
