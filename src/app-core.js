@@ -304,6 +304,20 @@ export function customTextColorVars(hex){
   return { '--text':'rgb('+rgb+')', '--text-2':'rgba('+rgb+',.82)', '--text-3':'rgba('+rgb+',.6)', '--body':'rgb('+rgb+')' };
 }
 
+/** 修复记录 id 非法问题：
+ *  - record 不是对象 → 返回 null（调用方应删除该条）
+ *  - id 已是合法非空字符串 → 原样返回
+ *  - id 缺失/非法但 fallbackKey 合法 → 将 record.id 补为 fallbackKey（保持 UI 键稳定）
+ *  - 否则生成新 id
+ *  注意：返回对象即传入的 record，会被原地修改。 */
+export function repairRecordId(record, fallbackKey){
+  if(!record || typeof record !== 'object') return null;
+  if(typeof record.id === 'string' && record.id !== '') return record;
+  var fk = (typeof fallbackKey === 'string' && fallbackKey !== '') ? fallbackKey : null;
+  record.id = fk || ('r' + Date.now() + '_' + Math.floor(Math.random()*1000));
+  return record;
+}
+
 /** 规范化字体大小选项 */
 export function normalizeFontSize(s){ return FONT_SIZE_OPTIONS.indexOf(s) >= 0 ? s : 'normal'; }
 /** 规范化文字颜色：已知预设原样返回；合法十六进制规范化（#RGB→#RRGGBB、转小写）后返回；其余回落 auto */
