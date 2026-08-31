@@ -2073,7 +2073,7 @@ function bindEditor(type){
   var titleEl=document.getElementById(type+'Title'); if(titleEl) titleEl.addEventListener('input', function(){ editing.data.title=this.textContent; autoSaveDraft(); });
   var bodyEl=document.getElementById(type+'Body');
   if(bodyEl){
-    bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; syncBodyPlaceholder(bodyEl); autoSaveDraft(); });
+    bodyEl.addEventListener('input', function(){ editing.data.body=this.innerText; syncBodyPlaceholder(bodyEl); autoSaveDraft(); });
     syncBodyPlaceholder(bodyEl);
   }
   c.querySelectorAll('[data-priority]').forEach(function(seg){ seg.addEventListener('click', function(){ var level=parseInt(seg.getAttribute('data-priority'),10); editing.data.priority=level; c.querySelectorAll('[data-priority]').forEach(function(s){ var l=parseInt(s.getAttribute('data-priority'),10); var m=getPriorityMeta(l); var isActive=l===level; s.classList.toggle('active',isActive); s.style.background=isActive?m.color:''; }); playSound('toggle'); autoSaveDraft(); }); });
@@ -2123,7 +2123,7 @@ function saveEditor(){
   if(!editing) return;
   var d=editing.data;
   var tEl=document.getElementById(editing.type+'Title'); if(tEl) d.title=tEl.textContent.trim();
-  var bEl=document.getElementById(editing.type+'Body'); if(bEl) d.body=bEl.textContent;
+  var bEl=document.getElementById(editing.type+'Body'); if(bEl) d.body=bEl.innerText;
   if(!d.title) d.title=(editing.type==='plan'?'未命名计划':'未命名复盘');
   var isNew=editing.isNew;
   if(isNew){ var nid='r'+Date.now(); d.folderId=editing.folderId; d.id=nid; DB.records[nid]=clone(d); editing.id=nid; editing.data.id=nid; editing.isNew=false; }

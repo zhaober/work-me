@@ -48,6 +48,6 @@ test('源码：bindEditor 用 is-empty 类控制占位显隐', () => {
   assert.match(html, /function syncBodyPlaceholder\(el\)\{[\s\S]{0,200}?el\.classList\.toggle\('is-empty', empty\)/, '空状态切换 is-empty');
 
   const bind = section("var bodyEl=document.getElementById(type+'Body');", "c.querySelectorAll('[data-priority]')");
-  assert.match(bind, /bodyEl\.addEventListener\('input', function\(\)\{ editing\.data\.body=this\.textContent; syncBodyPlaceholder\(bodyEl\); autoSaveDraft\(\); \}\)/, '输入时同步占位');
+  assert.match(bind, /bodyEl\.addEventListener\('input', function\(\)\{ editing\.data\.body=this\.innerText; syncBodyPlaceholder\(bodyEl\); autoSaveDraft\(\); \}\)/, '输入时同步占位（innerText 保留换行）');
   assert.match(bind, /if\(bodyEl\)\{[\s\S]{0,300}?syncBodyPlaceholder\(bodyEl\);/, '初次渲染即同步占位（空则显示）');
 });

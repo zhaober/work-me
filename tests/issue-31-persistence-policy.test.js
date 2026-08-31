@@ -62,7 +62,7 @@ test('源码：编辑已有记录时输入即存草稿（防抖落盘）', () =>
 
 test('源码：标题 / 正文 / 清单文本输入都接了自动存草稿', () => {
   assert.match(html, /editing\.data\.title=this\.textContent; autoSaveDraft\(\);/);
-  assert.match(html, /editing\.data\.body=this\.textContent; syncBodyPlaceholder\(bodyEl\); autoSaveDraft\(\);/, '正文输入触发自动存草稿（占位同步在中间）');
+  assert.match(html, /editing\.data\.body=this\.innerText; syncBodyPlaceholder\(bodyEl\); autoSaveDraft\(\);/, '正文输入触发自动存草稿（innerText 保留换行）');
   assert.match(html, /editing\.data\.checklist\[ci\]\.t=this\.textContent; autoSaveDraft\(\);/);
 });
 
