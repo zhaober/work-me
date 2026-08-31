@@ -112,6 +112,10 @@
   .t-label{font-size:calc(12px * var(--app-font-scale));font-weight:500;color:var(--text-2);}
   .t-sub{font-size:calc(12px * var(--app-font-scale));font-weight:400;color:var(--text-2);}
   .t-body{font-size:calc(15px * var(--app-font-scale));font-weight:400;color:var(--body);line-height:1.5;}
+  /* 正文编辑区：醒目的卡片样式 + 「请输入文本」占位提示，明确告知用户此处可写正文 */
+  .t-body-edit{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin:8px 0;min-height:160px;line-height:1.6;color:var(--body);white-space:pre-wrap;word-break:break-word;transition:border-color .15s;}
+  .t-body-edit:focus{border-color:var(--accent-stroke);}
+  .t-body-edit.is-empty:before{content:attr(data-placeholder);color:var(--text-3);pointer-events:none;}
   .t-title{font-size:calc(22px * var(--app-font-scale));font-weight:700;color:var(--text);}
   .t-meta{font-size:calc(12px * var(--app-font-scale));font-weight:400;color:var(--text-2);}
   .t-name{font-size:calc(14px * var(--app-font-scale));font-weight:600;color:var(--text);}
@@ -780,16 +784,21 @@ function applyDbShape(folders, records, events, settings){
   });
 }
 
-/** 取某张图片可渲染的 objectURL；Blob 缺失返回 null（不抛，避免一张坏图拖垮整条记录） */
-async function resolveImageUrl(imageId){
+/**
+ * 取某张图片可渲染的 objectURL；Blob 缺失返回 null（不抛，避免一张坏图拖垮整条记录）。
+ * 缓存同时保留 {url, blob}：当 blob URL 在 WebView 中被系统回收失效时，
+ * 可调用 forceRefresh 重新从 blob 创建 URL 自愈，而不用再次读 IndexedDB。
+ */
+async function resolveImageUrl(imageId, forceRefresh){
   if(!imageId) return null;
-  if(imageUrlCache[imageId]) return imageUrlCache[imageId];
+  var cached = imageUrlCache[imageId];
+  if(cached && cached.url && !forceRefresh) return cached.url;
   try{
     var row = await noteDB.getImage(imageId);
     var blob = row && (row.blob_full || row.blob_thumb);
     if(!blob) return null;
     var url = URL.createObjectURL(blob);
-    imageUrlCache[imageId] = url;
+    imageUrlCache[imageId] = {url: url, blob: blob};
     return url;
   }catch(e){ return null; }
 }
@@ -821,9 +830,9 @@ async function hydrateImages(){
 function releaseImageUrl(imageId){
   if(!imageId) return;
   if(isImageIdUsed(DB.records, imageId)) return;
-  var url = imageUrlCache[imageId];
-  if(url){
-    try { URL.revokeObjectURL(url); } catch(e){}
+  var cached = imageUrlCache[imageId];
+  if(cached && cached.url){
+    try { URL.revokeObjectURL(cached.url); } catch(e){}
     delete imageUrlCache[imageId];
   }
 }
@@ -833,7 +842,10 @@ function releaseUnusedImageUrls(){
   var used = collectUsedImageIds(DB.records);
   Object.keys(imageUrlCache).forEach(function(imageId){
     if(!used[imageId]){
-      try { URL.revokeObjectURL(imageUrlCache[imageId]); } catch(e){}
+      var cached = imageUrlCache[imageId];
+      if(cached && cached.url){
+        try { URL.revokeObjectURL(cached.url); } catch(e){}
+      }
       delete imageUrlCache[imageId];
     }
   });
@@ -1745,8 +1757,8 @@ document.getElementById('app').addEventListener('click', function(e){
   var fsopt=e.target.closest('[data-font-size-opt]'); if(fsopt){ onFontSizePick(fsopt.getAttribute('data-font-size-opt')); return; }
   // me: text color option
   var tcopt=e.target.closest('[data-text-color-opt]'); if(tcopt){ onTextColorPick(tcopt.getAttribute('data-text-color-opt')); return; }
-  // me: text color custom picker（取色器）
-  var tcin=e.target.closest('[data-text-color-custom]'); if(tcin){ onTextColorPick(tcin.value); return; }
+  // 注：自定义颜色取色器不再在 click 中处理——click 触发时原生取色面板尚未打开，读到的是旧值，
+  // 且 renderMe 重建 input 元素会让面板瞬间关闭；改由 #app 上的 input/change 委托监听真正捕获选中色（见下方）。
   // me: 通知权限（检测/请求/引导）
   var np=e.target.closest('[data-notify-permission]'); if(np){
     queryNotifyPermission().then(function(st){
@@ -1811,6 +1823,19 @@ document.getElementById('app').addEventListener('click', function(e){
   var pf=e.target.closest('[data-priority-filter]'); if(pf){ priorityFilter=true; renderFolder(currentFolder); playSound('tap'); return; }
   var pfo=e.target.closest('[data-priority-filter-off]'); if(pfo){ priorityFilter=false; renderFolder(currentFolder); playSound('tap'); return; }
 });
+
+/* 自定义颜色取色器：真正捕获用户选中的颜色。
+   click 委托里已不再处理它（见上）。原生取色面板在 click 之后才打开，选中的值通过 input/change 事件带回；
+   input 在桌面端拖动时连续触发，change 在移动端面板确认后触发，两者都带最新值。用已保存值去重，避免重复保存/重渲染。 */
+function onCustomColorInput(e){
+  var tcin = e.target.closest('[data-text-color-custom]');
+  if(!tcin) return;
+  var v = tcin.value;
+  if(normalizeTextColor(v) === normalizeTextColor(DB.settings.textColor)) return;
+  onTextColorPick(v);
+}
+document.getElementById('app').addEventListener('input', onCustomColorInput);
+document.getElementById('app').addEventListener('change', onCustomColorInput);
 
 /* search input (live) */
 document.getElementById('searchInput').addEventListener('input', function(){ if(navStack[navStack.length-1].screen!=='search') navStack.push({screen:'search'}); renderSearch(this.value); show('search'); });
@@ -1932,7 +1957,21 @@ function lbGoto(i){
   var urls = Array.isArray(editing.data.images) ? editing.data.images : [];
   if(i < 0 || i >= urls.length || !urls[i]) return;
   lbIndex = i;
-  document.getElementById('lightboxImg').src = urls[i];
+  var img = document.getElementById('lightboxImg');
+  img.onerror = function(){
+    img.onerror = null;
+    // blob URL 在 WebView 中可能被系统回收导致加载失败；强制刷新从 blob 重建
+    resolveImageUrl(editing.data.image_ids[i], true).then(function(newUrl){
+      if(newUrl){
+        editing.data.images[i] = newUrl;
+        img.src = newUrl;
+      } else {
+        toast('图片加载失败，请重试');
+        closeLightbox();
+      }
+    });
+  };
+  img.src = urls[i];
   lbReset();
   document.getElementById('lightbox').classList.add('show');
   lbSyncNav();
@@ -1985,7 +2024,7 @@ function paintEditor(){
       '<button class="reminder" id="'+type+'Reminder">'+REMINDER_SVG+(d.reminder?('<span>'+d.reminder+' 提醒</span>'):'<span>设置提醒</span>')+'</button>'+
       '<button class="reminder" id="'+type+'Date">'+DATE_SVG+'<span>'+d.date+'</span></button>'+
     '</div>';
-    html+='<div class="t-body" contenteditable="true" id="'+type+'Body" style="outline:none">'+escapeHtml(d.body||'')+'</div>';
+    html+='<div class="t-body t-body-edit" contenteditable="true" id="'+type+'Body" style="outline:none" data-placeholder="请输入文本">'+escapeHtml(d.body||'')+'</div>';
     html+=renderChecklist(type, d.checklist, '待办清单');
     html+='<div class="img-grid" id="'+type+'ImgGrid"></div>';
     html+='<div class="divider"></div>';
@@ -2005,7 +2044,7 @@ function paintEditor(){
     } else {
       html+='<div class="linked" data-link-choose style="border:1px dashed var(--accent-stroke);cursor:pointer"><div class="row-center gap8"><div class="t-meta" style="color:var(--accent)">+ 关联计划（可选）</div></div></div>';
     }
-    html+='<div class="t-body" contenteditable="true" id="'+type+'Body" style="outline:none">'+escapeHtml(d.body||'')+'</div>';
+    html+='<div class="t-body t-body-edit" contenteditable="true" id="'+type+'Body" style="outline:none" data-placeholder="请输入文本">'+escapeHtml(d.body||'')+'</div>';
     html+=renderChecklist(type, d.checklist, '改进项');
     html+='<div class="tags" id="'+type+'Tags">'+renderTags(d.tags)+'<div class="tag" style="background:var(--accent-soft);color:var(--accent)">+ 添加</div></div>';
   }
@@ -2024,10 +2063,19 @@ function autoSaveDraft(){
   DB.records[editing.id] = clone(editing.data);
   saveDB();
 }
+function syncBodyPlaceholder(el){
+  if(!el) return;
+  var empty = (!el.textContent || el.textContent.trim()==='') && !el.querySelector('img');
+  el.classList.toggle('is-empty', empty);
+}
 function bindEditor(type){
   var c=document.getElementById(type+'Content');
   var titleEl=document.getElementById(type+'Title'); if(titleEl) titleEl.addEventListener('input', function(){ editing.data.title=this.textContent; autoSaveDraft(); });
-  var bodyEl=document.getElementById(type+'Body'); if(bodyEl) bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; autoSaveDraft(); });
+  var bodyEl=document.getElementById(type+'Body');
+  if(bodyEl){
+    bodyEl.addEventListener('input', function(){ editing.data.body=this.innerText; syncBodyPlaceholder(bodyEl); autoSaveDraft(); });
+    syncBodyPlaceholder(bodyEl);
+  }
   c.querySelectorAll('[data-priority]').forEach(function(seg){ seg.addEventListener('click', function(){ var level=parseInt(seg.getAttribute('data-priority'),10); editing.data.priority=level; c.querySelectorAll('[data-priority]').forEach(function(s){ var l=parseInt(s.getAttribute('data-priority'),10); var m=getPriorityMeta(l); var isActive=l===level; s.classList.toggle('active',isActive); s.style.background=isActive?m.color:''; }); playSound('toggle'); autoSaveDraft(); }); });
   // 提醒时间：滚盘选择，取代手动输入 HH:MM
   var rem=document.getElementById(type+'Reminder'); if(rem) rem.addEventListener('click', function(){
@@ -2075,7 +2123,7 @@ function saveEditor(){
   if(!editing) return;
   var d=editing.data;
   var tEl=document.getElementById(editing.type+'Title'); if(tEl) d.title=tEl.textContent.trim();
-  var bEl=document.getElementById(editing.type+'Body'); if(bEl) d.body=bEl.textContent;
+  var bEl=document.getElementById(editing.type+'Body'); if(bEl) d.body=bEl.innerText;
   if(!d.title) d.title=(editing.type==='plan'?'未命名计划':'未命名复盘');
   var isNew=editing.isNew;
   if(isNew){ var nid='r'+Date.now(); d.folderId=editing.folderId; d.id=nid; DB.records[nid]=clone(d); editing.id=nid; editing.data.id=nid; editing.isNew=false; }
