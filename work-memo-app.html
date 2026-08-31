@@ -780,16 +780,21 @@ function applyDbShape(folders, records, events, settings){
   });
 }
 
-/** 取某张图片可渲染的 objectURL；Blob 缺失返回 null（不抛，避免一张坏图拖垮整条记录） */
-async function resolveImageUrl(imageId){
+/**
+ * 取某张图片可渲染的 objectURL；Blob 缺失返回 null（不抛，避免一张坏图拖垮整条记录）。
+ * 缓存同时保留 {url, blob}：当 blob URL 在 WebView 中被系统回收失效时，
+ * 可调用 forceRefresh 重新从 blob 创建 URL 自愈，而不用再次读 IndexedDB。
+ */
+async function resolveImageUrl(imageId, forceRefresh){
   if(!imageId) return null;
-  if(imageUrlCache[imageId]) return imageUrlCache[imageId];
+  var cached = imageUrlCache[imageId];
+  if(cached && cached.url && !forceRefresh) return cached.url;
   try{
     var row = await noteDB.getImage(imageId);
     var blob = row && (row.blob_full || row.blob_thumb);
     if(!blob) return null;
     var url = URL.createObjectURL(blob);
-    imageUrlCache[imageId] = url;
+    imageUrlCache[imageId] = {url: url, blob: blob};
     return url;
   }catch(e){ return null; }
 }
@@ -821,9 +826,9 @@ async function hydrateImages(){
 function releaseImageUrl(imageId){
   if(!imageId) return;
   if(isImageIdUsed(DB.records, imageId)) return;
-  var url = imageUrlCache[imageId];
-  if(url){
-    try { URL.revokeObjectURL(url); } catch(e){}
+  var cached = imageUrlCache[imageId];
+  if(cached && cached.url){
+    try { URL.revokeObjectURL(cached.url); } catch(e){}
     delete imageUrlCache[imageId];
   }
 }
@@ -833,7 +838,10 @@ function releaseUnusedImageUrls(){
   var used = collectUsedImageIds(DB.records);
   Object.keys(imageUrlCache).forEach(function(imageId){
     if(!used[imageId]){
-      try { URL.revokeObjectURL(imageUrlCache[imageId]); } catch(e){}
+      var cached = imageUrlCache[imageId];
+      if(cached && cached.url){
+        try { URL.revokeObjectURL(cached.url); } catch(e){}
+      }
       delete imageUrlCache[imageId];
     }
   });
@@ -1932,7 +1940,21 @@ function lbGoto(i){
   var urls = Array.isArray(editing.data.images) ? editing.data.images : [];
   if(i < 0 || i >= urls.length || !urls[i]) return;
   lbIndex = i;
-  document.getElementById('lightboxImg').src = urls[i];
+  var img = document.getElementById('lightboxImg');
+  img.onerror = function(){
+    img.onerror = null;
+    // blob URL 在 WebView 中可能被系统回收导致加载失败；强制刷新从 blob 重建
+    resolveImageUrl(editing.data.image_ids[i], true).then(function(newUrl){
+      if(newUrl){
+        editing.data.images[i] = newUrl;
+        img.src = newUrl;
+      } else {
+        toast('图片加载失败，请重试');
+        closeLightbox();
+      }
+    });
+  };
+  img.src = urls[i];
   lbReset();
   document.getElementById('lightbox').classList.add('show');
   lbSyncNav();

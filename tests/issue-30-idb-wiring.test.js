@@ -78,7 +78,7 @@ test('源码：删除走 NoteDB.deleteNote（先删图再删记录）', () => {
 
 test('源码：图片渲染走 Blob → objectURL，不把 Base64 塞回业务数据', () => {
   assert.match(html, /async function hydrateRecordImages\(rec\)/, '需把 Blob 转成可渲染 URL');
-  assert.match(html, /imageUrlCache\[imageId\] = url;/, '同一张图复用 URL，避免重复创建');
+  assert.match(html, /imageUrlCache\[imageId\] = \{url: url, blob: blob\};/, '缓存同时保留 url 与 blob，便于 blob URL 失效后重建');
   assert.match(html, /URL\.revokeObjectURL\(/, '换图/删图后必须释放，防止内存泄漏');
   assert.match(html, /function releaseUnusedImageUrls\(\)/, '需清理无引用的 objectURL');
 });
