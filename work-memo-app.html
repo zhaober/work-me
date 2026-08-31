@@ -112,6 +112,10 @@
   .t-label{font-size:calc(12px * var(--app-font-scale));font-weight:500;color:var(--text-2);}
   .t-sub{font-size:calc(12px * var(--app-font-scale));font-weight:400;color:var(--text-2);}
   .t-body{font-size:calc(15px * var(--app-font-scale));font-weight:400;color:var(--body);line-height:1.5;}
+  /* 正文编辑区：醒目的卡片样式 + 「请输入文本」占位提示，明确告知用户此处可写正文 */
+  .t-body-edit{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin:8px 0;min-height:160px;line-height:1.6;color:var(--body);white-space:pre-wrap;word-break:break-word;transition:border-color .15s;}
+  .t-body-edit:focus{border-color:var(--accent-stroke);}
+  .t-body-edit.is-empty:before{content:attr(data-placeholder);color:var(--text-3);pointer-events:none;}
   .t-title{font-size:calc(22px * var(--app-font-scale));font-weight:700;color:var(--text);}
   .t-meta{font-size:calc(12px * var(--app-font-scale));font-weight:400;color:var(--text-2);}
   .t-name{font-size:calc(14px * var(--app-font-scale));font-weight:600;color:var(--text);}
@@ -2020,7 +2024,7 @@ function paintEditor(){
       '<button class="reminder" id="'+type+'Reminder">'+REMINDER_SVG+(d.reminder?('<span>'+d.reminder+' 提醒</span>'):'<span>设置提醒</span>')+'</button>'+
       '<button class="reminder" id="'+type+'Date">'+DATE_SVG+'<span>'+d.date+'</span></button>'+
     '</div>';
-    html+='<div class="t-body" contenteditable="true" id="'+type+'Body" style="outline:none">'+escapeHtml(d.body||'')+'</div>';
+    html+='<div class="t-body t-body-edit" contenteditable="true" id="'+type+'Body" style="outline:none" data-placeholder="请输入文本">'+escapeHtml(d.body||'')+'</div>';
     html+=renderChecklist(type, d.checklist, '待办清单');
     html+='<div class="img-grid" id="'+type+'ImgGrid"></div>';
     html+='<div class="divider"></div>';
@@ -2040,7 +2044,7 @@ function paintEditor(){
     } else {
       html+='<div class="linked" data-link-choose style="border:1px dashed var(--accent-stroke);cursor:pointer"><div class="row-center gap8"><div class="t-meta" style="color:var(--accent)">+ 关联计划（可选）</div></div></div>';
     }
-    html+='<div class="t-body" contenteditable="true" id="'+type+'Body" style="outline:none">'+escapeHtml(d.body||'')+'</div>';
+    html+='<div class="t-body t-body-edit" contenteditable="true" id="'+type+'Body" style="outline:none" data-placeholder="请输入文本">'+escapeHtml(d.body||'')+'</div>';
     html+=renderChecklist(type, d.checklist, '改进项');
     html+='<div class="tags" id="'+type+'Tags">'+renderTags(d.tags)+'<div class="tag" style="background:var(--accent-soft);color:var(--accent)">+ 添加</div></div>';
   }
@@ -2059,10 +2063,19 @@ function autoSaveDraft(){
   DB.records[editing.id] = clone(editing.data);
   saveDB();
 }
+function syncBodyPlaceholder(el){
+  if(!el) return;
+  var empty = (!el.textContent || el.textContent.trim()==='') && !el.querySelector('img');
+  el.classList.toggle('is-empty', empty);
+}
 function bindEditor(type){
   var c=document.getElementById(type+'Content');
   var titleEl=document.getElementById(type+'Title'); if(titleEl) titleEl.addEventListener('input', function(){ editing.data.title=this.textContent; autoSaveDraft(); });
-  var bodyEl=document.getElementById(type+'Body'); if(bodyEl) bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; autoSaveDraft(); });
+  var bodyEl=document.getElementById(type+'Body');
+  if(bodyEl){
+    bodyEl.addEventListener('input', function(){ editing.data.body=this.textContent; syncBodyPlaceholder(bodyEl); autoSaveDraft(); });
+    syncBodyPlaceholder(bodyEl);
+  }
   c.querySelectorAll('[data-priority]').forEach(function(seg){ seg.addEventListener('click', function(){ var level=parseInt(seg.getAttribute('data-priority'),10); editing.data.priority=level; c.querySelectorAll('[data-priority]').forEach(function(s){ var l=parseInt(s.getAttribute('data-priority'),10); var m=getPriorityMeta(l); var isActive=l===level; s.classList.toggle('active',isActive); s.style.background=isActive?m.color:''; }); playSound('toggle'); autoSaveDraft(); }); });
   // 提醒时间：滚盘选择，取代手动输入 HH:MM
   var rem=document.getElementById(type+'Reminder'); if(rem) rem.addEventListener('click', function(){
