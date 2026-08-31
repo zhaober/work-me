@@ -141,3 +141,7 @@ npm test          # 等价：node --test tests/*.test.js
 - 产品需求文档：[`PRD.md`](./PRD.md)
 - 可视化 PRD：[`PRD-工作计划与复盘备忘录App.html`](./PRD-工作计划与复盘备忘录App.html)
 - 最近发版说明：[`RELEASE_NOTES_v1.6.1.md`](./RELEASE_NOTES_v1.6.1.md)
+
+## 九、许可证
+
+本项目以 [MIT License](./LICENSE) 开源。
