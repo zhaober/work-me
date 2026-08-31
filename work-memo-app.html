@@ -1753,8 +1753,8 @@ document.getElementById('app').addEventListener('click', function(e){
   var fsopt=e.target.closest('[data-font-size-opt]'); if(fsopt){ onFontSizePick(fsopt.getAttribute('data-font-size-opt')); return; }
   // me: text color option
   var tcopt=e.target.closest('[data-text-color-opt]'); if(tcopt){ onTextColorPick(tcopt.getAttribute('data-text-color-opt')); return; }
-  // me: text color custom picker（取色器）
-  var tcin=e.target.closest('[data-text-color-custom]'); if(tcin){ onTextColorPick(tcin.value); return; }
+  // 注：自定义颜色取色器不再在 click 中处理——click 触发时原生取色面板尚未打开，读到的是旧值，
+  // 且 renderMe 重建 input 元素会让面板瞬间关闭；改由 #app 上的 input/change 委托监听真正捕获选中色（见下方）。
   // me: 通知权限（检测/请求/引导）
   var np=e.target.closest('[data-notify-permission]'); if(np){
     queryNotifyPermission().then(function(st){
@@ -1819,6 +1819,19 @@ document.getElementById('app').addEventListener('click', function(e){
   var pf=e.target.closest('[data-priority-filter]'); if(pf){ priorityFilter=true; renderFolder(currentFolder); playSound('tap'); return; }
   var pfo=e.target.closest('[data-priority-filter-off]'); if(pfo){ priorityFilter=false; renderFolder(currentFolder); playSound('tap'); return; }
 });
+
+/* 自定义颜色取色器：真正捕获用户选中的颜色。
+   click 委托里已不再处理它（见上）。原生取色面板在 click 之后才打开，选中的值通过 input/change 事件带回；
+   input 在桌面端拖动时连续触发，change 在移动端面板确认后触发，两者都带最新值。用已保存值去重，避免重复保存/重渲染。 */
+function onCustomColorInput(e){
+  var tcin = e.target.closest('[data-text-color-custom]');
+  if(!tcin) return;
+  var v = tcin.value;
+  if(normalizeTextColor(v) === normalizeTextColor(DB.settings.textColor)) return;
+  onTextColorPick(v);
+}
+document.getElementById('app').addEventListener('input', onCustomColorInput);
+document.getElementById('app').addEventListener('change', onCustomColorInput);
 
 /* search input (live) */
 document.getElementById('searchInput').addEventListener('input', function(){ if(navStack[navStack.length-1].screen!=='search') navStack.push({screen:'search'}); renderSearch(this.value); show('search'); });

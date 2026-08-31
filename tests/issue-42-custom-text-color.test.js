@@ -72,8 +72,8 @@ test('relativeLuminance：纯黑≈0、纯白≈1，深色<浅色', () => {
 });
 
 test('textShadowForHex：深色字用浅阴影、浅色字用深阴影', () => {
-  assert.strictEqual(textShadowForHex('#111111'), '0 1px 4px rgba(255,255,255,.7)');
-  assert.strictEqual(textShadowForHex('#eeeeee'), '0 1px 4px rgba(0,0,0,.6)');
+  assert.strictEqual(textShadowForHex('#111111'), '0 1px 2px rgba(255,255,255,.9)');
+  assert.strictEqual(textShadowForHex('#eeeeee'), '0 1px 3px rgba(0,0,0,.55)');
 });
 
 test('customTextColorVars：生成 --text/--text-2/--text-3/--body 四档透明度变量', () => {
