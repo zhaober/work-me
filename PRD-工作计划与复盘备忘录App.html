@@ -407,6 +407,9 @@ Settings {                                                // v1.2 个性化；v1
   <p>
     <b>v1.6.1 相对 v1.6.0 的关键变更（真机反馈 5 项修复，逐条提交、各自带测试）</b>：<b>① 多图 lightbox 大图破图</b>——WebView 回收 blob URL 导致大图破图；<code>imageUrlCache</code> 由只存字符串改为存 <code>{url,blob}</code> 对象，<code>resolveImageUrl(id, forceRefresh)</code> 支持强制重建，<code>lbGoto</code> 挂 <code>onerror</code> 自愈链重建当前图。<b>② 自定义文字颜色不生效 + 偏糊</b>——自由取色器原仅在 click 委托读 <code>tcin.value</code>（原生面板尚未打开读到旧值，且 <code>renderMe</code> 重建 input 让面板瞬间关闭），用户选的颜色被丢弃；改为 <code>#app</code> 上的 <code>input</code>/<code>change</code> 委托真正捕获选中色（与已保存值去重避免重复重渲染），<code>applyTextColor</code> 本就正确写入内联 <code>--text</code> 变量，配合后自定义色即生效；并将文字阴影由 4px 收紧至 2~3px 修复叠背景时的发虚。<b>③ 正文编辑区无醒目样式/提示</b>——新增 <code>.t-body-edit</code> 卡片样式（背景/边框/圆角/最小高度/<code>pre-wrap</code>），空正文显示「请输入文本」占位（<code>data-placeholder</code> + <code>.is-empty</code> 类，避开 contenteditable <code>:empty</code> 不稳定），基础 <code>.t-body</code> 不受影响。<b>④⑤ 正文段落/换行保存后丢失</b>——原用 <code>this.textContent</code> 捕获会把 <code>&lt;br&gt;/&lt;div&gt;</code> 折叠掉；输入实时保存与 <code>saveEditor</code> 落盘均改 <code>this.innerText</code> 保留 <code>\n</code>，配合 <code>pre-wrap</code> 重新打开仍是多段；正文仍以 <code>escapeHtml</code> 纯文本渲染（无 XSS）。新增 issue-50/51/52/53 测试，并同步修订 issue-31/42/52 中锁死旧写法的断言；全量 430 例通过。
   </p>
+  <p>
+    <b>v1.6.2 相对 v1.6.1 的关键变更（移除安装包内置演示数据）</b>：用户反馈下载安装后，App 首页出现「工作/个人/学习」三个文件夹及下属多条记录，被误认为"测试文件残留"。<b>根因</b>——内核 <code>work-memo-app.html</code> 的初始 <code>DB.folders</code> / <code>DB.records</code> 硬编码了 9 个演示文件夹 + 9 条演示记录，首次打开（IndexedDB/localStorage 无历史数据）时直接显示。<b>修复</b>——初始 <code>DB.folders</code> / <code>DB.records</code> 清空为 <code>{}</code>，首次打开即空状态；新增 <code>ensureDefaultFolder()</code> 兜底：用户新建记录却没有任何文件夹时，自动创建「默认」文件夹，避免记录无家可归；<code>newRecord</code> / <code>loadEditor</code> 的 folder 回退由硬编码 <code>'work'</code> 改为 <code>ensureDefaultFolder()</code>；相关注释由"保留内置示例数据"更新为"以空数据启动"。新增 issue-54 测试，全量 435 例通过。
+  </p>
   </footer>
 </div>
 </body>

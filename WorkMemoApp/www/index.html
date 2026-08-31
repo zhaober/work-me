@@ -716,32 +716,19 @@ function markBootOk(){
 var TODAY = getTodayStr();
 var COLORS = {accent:'#4F6EF7', orange:'#FF8A3D', green:'#2BB673'};
 var DB = {
-  folders: {
-    work:    {name:'工作', parent:null, color:'accent'},
-    personal:{name:'个人', parent:null, color:'orange'},
-    study:   {name:'学习', parent:null, color:'green'},
-    f_q3:    {name:'2026 Q3', parent:'work', color:'accent'},
-    f_daily: {name:'日常', parent:'work', color:'orange'},
-    f_health:{name:'健康', parent:'personal', color:'green'},
-    f_finan: {name:'理财', parent:'personal', color:'accent'},
-    f_course:{name:'课程', parent:'study', color:'orange'},
-    f_book:  {name:'读书', parent:'study', color:'green'}
-  },
-  records: {
-    r1:{type:'plan',   folderId:'work',     title:'完成 Q3 新品上线方案', date:'2026-08-27', time:'09:20', reminder:'18:00', tags:['重要','跟进'], priority:1, image:null,
-        checklist:[{t:'拉齐研发排期',c:true},{t:'确认灰度方案',c:false},{t:'发布上线通知',c:false}], body:'上午：与研发对齐上线排期，确认灰度方案与时间窗。'},
-    r2:{type:'review', folderId:'work',     title:'复盘：周会跟进事项',   date:'2026-08-26', time:'18:30', reminder:null, tags:[], image:null, checklist:[], body:'本周周会事项跟进情况复盘。'},
-    r3:{type:'plan',   folderId:'work',     title:'梳理下季度 OKR 初稿', date:'2026-08-25', time:'10:00', reminder:null, tags:[], image:null, checklist:[], body:''},
-    r4:{type:'review', folderId:'personal', title:'复盘：本周运动打卡',   date:'2026-08-27', time:'21:00', reminder:null, tags:['健康'], image:null, checklist:[], body:''},
-    r5:{type:'plan',   folderId:'personal', title:'制定 9 月月度预算',   date:'2026-08-26', time:'20:00', reminder:null, tags:['理财'], image:null, checklist:[], body:''},
-    r6:{type:'review', folderId:'personal', title:'复盘：亲子时间记录',   date:'2026-08-23', time:'19:00', reminder:null, tags:[], image:null, checklist:[], body:''},
-    r7:{type:'plan',   folderId:'study',    title:'完成《设计心理学》第 3 章', date:'2026-08-27', time:'20:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
-    r8:{type:'review', folderId:'study',    title:'复盘：英语口语练习',   date:'2026-08-24', time:'22:00', reminder:null, tags:['学习'], image:null, checklist:[], body:''},
-    r9:{type:'plan',   folderId:'study',    title:'整理 LeetCode 错题集', date:'2026-08-22', time:'21:00', reminder:null, tags:[], image:null, checklist:[], body:''}
-  },
+  folders: {},
+  records: {},
   events: [],
   settings: getDefaultSettings()
 };
+/** 当用户尝试新建记录却没有任何文件夹时，自动创建一个默认文件夹，避免记录无家可归 */
+function ensureDefaultFolder(){
+  var ids = Object.keys(DB.folders);
+  if(ids.length > 0) return ids[0];
+  var id = 'u'+Date.now();
+  DB.folders[id] = {name:'默认', parent:null, color:'accent'};
+  return id;
+}
 function childrenOf(id){ var r=[]; for(var k in DB.folders){ if(DB.folders[k].parent===id) r.push(k); } return r; }
 function recordsOf(id){ var r=[]; for(var k in DB.records){ if(DB.records[k].folderId===id) r.push(k); } return r; }
 function allRecords(){ return Object.keys(DB.records); }
@@ -894,7 +881,7 @@ async function idbHasData(){
 
 /**
  * 启动引导：优先 IndexedDB；环境不支持或库为空时读 localStorage。
- * 注意：读不到任何数据时不报错，保留内置示例数据，App 仍可用。
+ * 注意：读不到任何数据时不报错，以空数据启动，App 仍可用。
  */
 async function bootstrapStore(){
   armFlushHooks();
@@ -909,7 +896,7 @@ async function bootstrapStore(){
         if(migrated) toast('已将 '+migrated+' 条历史数据迁移到新存储');
         return;
       }
-      // 库为空：没有历史数据，保留内置示例（降级读一次 localStorage 兼容旧版本）
+      // 库为空：没有历史数据，以空数据启动（降级读一次 localStorage 兼容旧版本）
       STORAGE_MODE = 'idb';
       loadFromLocalStorage();
       return;
@@ -1245,7 +1232,7 @@ function onSoundToggle(){
 
 function goFolder(id){ currentFolder=id; priorityFilter=false; selectionMode=false; navStack.push({screen:'folder', id:id}); renderFolder(id); show('folder'); }
 function openRecord(recId){ var r=DB.records[recId]; if(!r) return; loadEditor(r.type, recId, r.folderId); navStack.push({screen:r.type, recId:recId}); paintEditor(); show(r.type); }
-function newRecord(type){ loadEditor(type, null, currentFolder||'work'); navStack.push({screen:type, recId:null, folderId:currentFolder}); paintEditor(); show(type); }
+function newRecord(type){ var fid=currentFolder||ensureDefaultFolder(); loadEditor(type, null, fid); navStack.push({screen:type, recId:null, folderId:fid}); paintEditor(); show(type); }
 
 /* ============ MODAL & SHEET ============ */
 var modalInput=document.getElementById('modalInput'), modalTitle=document.getElementById('modalTitle'), modalMsg=document.getElementById('modalMsg');
@@ -1899,7 +1886,7 @@ var DATE_SVG = '<svg width="12" height="14" viewBox="0 0 12 14" fill="none"><rec
 
 function loadEditor(type, recId, folderId){
   if(recId){ var r=DB.records[recId]; editing={id:recId, type:type, folderId:r.folderId, isNew:false, data:clone(r)}; }
-  else { var fid=folderId||currentFolder||'work'; editing={id:null, type:type, folderId:fid, isNew:true, data:{type:type, folderId:fid, title:'', date:TODAY, time:getNowTime(), reminder:null, tags:[], priority:0, image:null, checklist:[], body:'', linkPlanId:null}}; }
+  else { var fid=folderId||currentFolder||ensureDefaultFolder(); editing={id:null, type:type, folderId:fid, isNew:true, data:{type:type, folderId:fid, title:'', date:TODAY, time:getNowTime(), reminder:null, tags:[], priority:0, image:null, checklist:[], body:'', linkPlanId:null}}; }
 }
 function renderTags(tags){ return (tags||[]).map(function(t){ return '<div class="tag" data-tag-del="'+t+'">#'+escapeHtml(t)+'</div>'; }).join(''); }
 function renderChecklist(type, list, label){
@@ -2596,7 +2583,7 @@ document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
 /* ============ INIT ============ */
 /* 恢复上次选择的导出文件夹（句柄持久化在 IndexedDB） */
 loadExportDirHandle().then(function(h){ if(h){ exportDirHandle=h; exportDirLabel=h.name||'所选文件夹'; } });
-/* 先等 IndexedDB 数据载入再渲染，否则会先闪一帧内置示例数据 */
+/* 先等 IndexedDB 数据载入再渲染，避免空数据/旧数据闪一帧 */
 markBootStage('store-loading');
 /* 存储层可能既不 resolve 也不 reject（权限被拒/库损坏/隐私模式），
    那样 .then/.catch 都不会执行，App 会永远停在空白页。加超时兜底，保证一定能打开。 */
@@ -2620,7 +2607,7 @@ raceTimeout(bootstrapStore(), BOOT_STORE_TIMEOUT, BOOT_TIMEOUT_SENTINEL).then(fu
     try { rescheduleAllNotifications(); } catch(e){ /* 通知失败不影响主功能 */ }
   }, 500);
 }).catch(function(e){
-  // 存储层异常不应让 App 白屏：用内存中的（示例/降级）数据继续启动
+  // 存储层异常不应让 App 白屏：用内存中的（空/降级）数据继续启动
   loadSettings();
   renderHome(); renderCalendar(); renderStats();
   markBootOk();

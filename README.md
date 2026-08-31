@@ -3,7 +3,7 @@
 > 一个面向个人与团队的工作计划 / 复盘记录 App：单文件 HTML 内核 + Capacitor 封装的 Android 应用，数据本地存储（IndexedDB），支持图文混排、自定义文字颜色、定时提醒与后台通知。
 
 - 包名：`com.workmemo.app`
-- 当前版本：**v1.6.1**（versionCode 8）
+- 当前版本：**v1.6.2**（versionCode 9）
 - 平台：Android（Capacitor 7.x 封装）
 
 ---
@@ -18,7 +18,7 @@ WorkMemo 帮助用户把「计划」和「复盘」两类记录沉淀下来，�
 
 产品需求文档见 [`PRD.md`](./PRD.md)（及可视化的 [`PRD-工作计划与复盘备忘录App.html`](./PRD-工作计划与复盘备忘录App.html)）。
 
-### 核心功能（截至 v1.6.1）
+### 核心功能（截至 v1.6.2）
 
 | 能力 | 说明 |
 |------|------|
@@ -62,8 +62,8 @@ WorkMemo 帮助用户把「计划」和「复盘」两类记录沉淀下来，�
 │           ├── index.html         # 镜像②：打包进 APK 的资源（.gitignore 忽略，发版前由脚本同步）
 │           └── src/*.js
 ├── PRD.md / PRD-工作计划与复盘备忘录App.html  # 产品需求文档（两版）
-├── RELEASE_NOTES_v1.6.1.md        # 最近一次发版说明
-└── workmemo-app-debug-v1.6.1.apk  # 最近一次构建产物（.gitignore 忽略，不入库）
+├── RELEASE_NOTES_v1.6.2.md        # 最近一次发版说明
+└── workmemo-app-debug-v1.6.2.apk  # 最近一次构建产物（.gitignore 忽略，不入库）
 ```
 
 ### 三处镜像同步约定（重要）
@@ -140,7 +140,7 @@ npm test          # 等价：node --test tests/*.test.js
 
 - 产品需求文档：[`PRD.md`](./PRD.md)
 - 可视化 PRD：[`PRD-工作计划与复盘备忘录App.html`](./PRD-工作计划与复盘备忘录App.html)
-- 最近发版说明：[`RELEASE_NOTES_v1.6.1.md`](./RELEASE_NOTES_v1.6.1.md)
+- 最近发版说明：[`RELEASE_NOTES_v1.6.2.md`](./RELEASE_NOTES_v1.6.2.md)
 
 ## 九、许可证
 
