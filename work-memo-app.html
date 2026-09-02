@@ -357,6 +357,38 @@
   #app[data-style="glass"] .card,#app[data-style="glass"] .search,#app[data-style="glass"] .frow,#app[data-style="glass"] .scard,#app[data-style="glass"] .rec,#app[data-style="glass"] .me-card,#app[data-style="glass"] .calcard,#app[data-style="glass"] .checklist,#app[data-style="glass"] .linked,#app[data-style="glass"] .result-row,#app[data-style="glass"] .ov-card,#app[data-style="glass"] .priority-seg,#app[data-style="glass"] .modal-card{ background: color-mix(in srgb, var(--card) 66%, transparent); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); border-color: color-mix(in srgb, var(--text) 12%, transparent); }
   #app[data-style="minimal"] .card,#app[data-style="minimal"] .search,#app[data-style="minimal"] .frow,#app[data-style="minimal"] .scard,#app[data-style="minimal"] .rec,#app[data-style="minimal"] .me-card,#app[data-style="minimal"] .calcard,#app[data-style="minimal"] .checklist,#app[data-style="minimal"] .linked,#app[data-style="minimal"] .result-row,#app[data-style="minimal"] .ov-card{ border-color: transparent; box-shadow: none; }
   #app[data-style="depth"] .card,#app[data-style="depth"] .scard,#app[data-style="depth"] .rec,#app[data-style="depth"] .me-card,#app[data-style="depth"] .calcard,#app[data-style="depth"] .ov-card,#app[data-style="depth"] .result-row{ box-shadow: 0 10px 28px rgba(0,0,0,.14); border-color: transparent; }
+
+  /* 今日计划页面 */
+  .today-plan-stats{display:flex;gap:12px;}
+  .today-plan-stats .card{flex:1;padding:14px;display:flex;flex-direction:column;gap:4px;}
+  .today-plan-stats .num{font-size:calc(24px * var(--app-font-scale));font-weight:700;line-height:1.1;}
+  .today-plan-stats .num.blue{color:var(--accent);}
+  .today-plan-stats .num.green{color:var(--green);}
+  .today-plan-stats .num.orange{color:var(--orange);}
+  .today-plan-list{display:flex;flex-direction:column;gap:10px;}
+  .today-plan-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+  .today-plan-header{display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .today-plan-header .tp-title{flex:1;min-width:0;}
+  .today-plan-header .tp-title .t-rec-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px;}
+  .today-plan-header .tp-title .t-meta{font-size:11px;}
+  .today-plan-progress{display:flex;flex-direction:column;gap:4px;}
+  .today-plan-progress .tp-pbar{height:5px;background:var(--progress-track);border-radius:3px;overflow:hidden;}
+  .today-plan-progress .tp-pbar > i{display:block;height:100%;background:var(--green);border-radius:3px;transition:width .2s;}
+  .today-plan-progress .tp-pmeta{display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);}
+  .today-plan-items{display:flex;flex-direction:column;gap:4px;}
+  .today-plan-item{display:flex;align-items:center;gap:10px;padding:4px 0;}
+  .today-plan-item .tp-text{flex:1;font-size:13px;color:var(--body);}
+  .today-plan-item .tp-text.done{color:var(--text-3);text-decoration:line-through;}
+  .today-plan-bottombar{position:absolute;left:0;right:0;bottom:calc(95px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--border);padding:10px 20px;display:none;gap:10px;z-index:7;}
+  .today-plan-bottombar.show{display:flex;}
+  .today-plan-bottombar .btn{flex:1;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .today-plan-bottombar .btn-primary{background:var(--accent);color:#fff;}
+  .today-plan-bottombar .btn-primary:active{background:#3D5BE0;}
+  .today-plan-bottombar .btn-secondary{background:var(--bg);color:var(--text);border:1px solid var(--border);}
+  .today-plan-empty{padding:48px 24px;text-align:center;color:var(--text-3);}
+  .today-plan-empty .tp-emoji{font-size:48px;margin-bottom:12px;display:block;}
+  .today-plan-empty .tp-msg{font-size:15px;margin-bottom:6px;color:var(--text-2);font-weight:500;}
+  .today-plan-empty .tp-hint{font-size:12px;color:var(--text-3);line-height:1.5;}
 </style>
 <script>
 /* ============ 启动崩溃兜底（经典脚本，必须早于 module 脚本注册） ============
@@ -535,6 +567,19 @@
     <div class="content g16" id="statsContent"></div>
   </section>
 
+  <!-- ================= SCREEN: TODAY PLAN ================= -->
+  <section class="screen" id="todayPlan" data-no-tab>
+    <div class="content g16">
+      <div class="head">
+        <button class="back icon-btn" data-back><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M6 1L1 7L6 13" stroke="#1A1D29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="title">今日计划</div>
+        <div style="width:32px"></div>
+      </div>
+      <div id="todayPlanStats" class="today-plan-stats"></div>
+      <div id="todayPlanList" class="today-plan-list"></div>
+    </div>
+  </section>
+
   <!-- ================= SCREEN: ME ================= -->
   <section class="screen" id="me" data-tab="me">
     <div class="content g16" id="meContent"></div>
@@ -569,6 +614,12 @@
         <span>我的</span>
       </button>
     </div>
+  </div>
+
+  <!-- TODAY PLAN BOTTOM BAR -->
+  <div class="today-plan-bottombar" id="todayPlanBottombar">
+    <button class="btn btn-secondary" id="tpDoneBtn">全部完成</button>
+    <button class="btn btn-primary" id="tpMoveBtn">移到下一天</button>
   </div>
 
   <!-- SIDEBAR -->
@@ -1399,7 +1450,7 @@ function renderHome(){
   document.getElementById('homeFolders').innerHTML = html;
   var plans=0, reviews=0; allRecords().forEach(function(k){ var r=DB.records[k]; if(r.date!==TODAY) return; if(r.type==='plan') plans++; else reviews++; });
   document.getElementById('overview').innerHTML =
-    '<div class="ov-card"><div class="t-label">今日计划</div><div class="ov-num-row"><div class="ov-big-plan">'+plans+'</div><div class="t-sub">项 · 今日待办</div></div></div>'
+    '<div class="ov-card" data-go-today-plan style="cursor:pointer"><div class="t-label">今日计划</div><div class="ov-num-row"><div class="ov-big-plan">'+plans+'</div><div class="t-sub">项 · 今日待办</div></div></div>'
    +'<div class="ov-card"><div class="t-label">今日复盘</div><div class="ov-num-row"><div class="ov-big-review">'+reviews+'</div><div class="t-sub">篇 · 记录收获</div></div></div>';
   var greet = getGreetingByHour(new Date().getHours());
   document.getElementById('homeGreet').textContent = greet.text;
@@ -1768,7 +1819,7 @@ document.getElementById('app').addEventListener('click', function(e){
   // selection mode: toggle item checkbox
   var sel=e.target.closest('[data-sel]'); if(sel){ toggleSel(sel.getAttribute('data-sel')); return; }
   // back
-  var back=e.target.closest('[data-back]'); if(back){ if(navStack.length>1) navStack.pop(); var prev=navStack[navStack.length-1]; if(prev.screen==='folder'){ renderFolder(prev.id); } else if(prev.screen==='plan'||prev.screen==='review'){ loadEditor(prev.type, prev.recId, prev.folderId); paintEditor(); } else if(prev.screen==='home'){ renderHome(); } else if(prev.screen==='search'){ renderSearch(document.getElementById('searchInput').value); } else if(prev.screen==='calendar'){ renderCalendar(); } else if(prev.screen==='stats'){ renderStats(); } show(prev.screen); return; }
+  var back=e.target.closest('[data-back]'); if(back){ if(navStack.length>1) navStack.pop(); var prev=navStack[navStack.length-1]; if(prev.screen==='folder'){ renderFolder(prev.id); } else if(prev.screen==='plan'||prev.screen==='review'){ loadEditor(prev.type, prev.recId, prev.folderId); paintEditor(); } else if(prev.screen==='home'){ renderHome(); } else if(prev.screen==='search'){ renderSearch(document.getElementById('searchInput').value); } else if(prev.screen==='calendar'){ renderCalendar(); } else if(prev.screen==='stats'){ renderStats(); } else if(prev.screen==='todayPlan'){ renderTodayPlan(); } show(prev.screen); return; }
   // home folder row
   var fr=e.target.closest('[data-folder]'); if(fr){ goFolder(fr.getAttribute('data-folder')); return; }
   // search result folder/record
@@ -1800,6 +1851,16 @@ document.getElementById('app').addEventListener('click', function(e){
   var de=e.target.closest('[data-del-event]'); if(de){ deleteCustomEvent(de.getAttribute('data-del-event')); return; }
   // stats tag filter
   var tag=e.target.closest('[data-tag]'); if(tag){ document.getElementById('searchInput').value=tag.getAttribute('data-tag'); renderSearch(tag.getAttribute('data-tag')); show('search'); return; }
+  // today plan: open from home overview card
+  var gtp=e.target.closest('[data-go-today-plan]'); if(gtp){ navStack.push({screen:'todayPlan'}); renderTodayPlan(); show('todayPlan'); return; }
+  // today plan: toggle checklist item
+  var ti=e.target.closest('[data-ti]'); if(ti){ var parts=ti.getAttribute('data-ti').split('-'); var pid=parts[0]; var iidx=parseInt(parts.slice(1).join('-'),10); toggleTodayPlanItem(pid, iidx); return; }
+  // today plan: open the record editor
+  var op=e.target.closest('[data-open-plan]'); if(op){ openRecord(op.getAttribute('data-open-plan')); return; }
+  // today plan: bottom bar - mark all done
+  if(e.target.id==='tpDoneBtn'){ markAllDone(); return; }
+  // today plan: bottom bar - move pending to next day
+  if(e.target.id==='tpMoveBtn'){ openConfirmModal('移到下一天', '将把今天未完成的待办移到明天。确定吗？', function(ok){ if(ok) movePendingToNextDay(); }); return; }
   // editor save
   var sv=e.target.closest('[data-save]'); if(sv){ saveEditor(); return; }
   // editor delete
@@ -2579,6 +2640,129 @@ document.querySelectorAll('#editortoolbar .etbtn').forEach(function(btn, i){
     else if(act==='link' && editing.type==='review'){ chooseLinkPlan(); }
   });
 });
+
+/* ============ TODAY PLAN (今日计划) ============ */
+/* 今日计划：聚合当日所有 plan 记录的 checklist 项，可勾选完成；
+   未完成项在关闭前询问是否移到下一天。 */
+var todayPlanCache = [];   // [{id, title, time, tags, total, done}]
+var todayPlanItems = [];   // [{planId, idx, text, done}]
+
+function renderTodayPlan(){
+  var plans = [];
+  allRecords().forEach(function(k){
+    var r = DB.records[k];
+    if(r.type !== 'plan' || r.date !== TODAY) return;
+    var total = r.checklist.length, done = 0;
+    r.checklist.forEach(function(c){ if(c.c) done++; });
+    plans.push({ id:k, title:r.title||'未命名计划', time:r.time||'', tags:r.tags||[], total:total, done:done });
+  });
+  if(plans.length === 0){
+    document.getElementById('todayPlanStats').innerHTML = '';
+    document.getElementById('todayPlanList').innerHTML =
+      '<div class="today-plan-empty">'
+      + '<span class="tp-emoji">📋</span>'
+      + '<div class="tp-msg">今天还没有计划</div>'
+      + '<div class="tp-hint">去文件夹新建今日计划，<br/>待办清单会在这里聚合显示</div>'
+      + '</div>';
+    document.getElementById('todayPlanBottombar').classList.remove('show');
+    todayPlanCache = []; todayPlanItems = [];
+    return;
+  }
+  var totalItems = 0, doneItems = 0;
+  plans.forEach(function(p){ totalItems += p.total; doneItems += p.done; });
+  var pendingItems = totalItems - doneItems;
+  document.getElementById('todayPlanStats').innerHTML =
+    '<div class="card"><div class="t-label">今日</div><div class="num blue">'+plans.length+'</div><div class="t-sub">个计划</div></div>'
+    +'<div class="card"><div class="t-label">待办</div><div class="num orange">'+pendingItems+'</div><div class="t-sub">项未完成</div></div>'
+    +'<div class="card"><div class="t-label">完成</div><div class="num green">'+doneItems+'</div><div class="t-sub">项已完成</div></div>';
+
+  var cards = plans.map(function(p){
+    var pct = p.total ? Math.round(p.done/p.total*100) : 0;
+    var tagHtml = (p.tags||[]).length ? '<span class="t-meta">'+(p.tags||[]).map(function(t){return '#'+escapeHtml(t);}).join(' ')+'</span>' : '';
+    var itemsHtml = (p.checklist ? p.checklist.map(function(c,i){
+      return '<div class="today-plan-item" data-ti="' + p.id + '-' + i + '">'
+        + '<div class="cb '+(c.c?'on':'off')+'">'+(c.c?CHECK_SVG:'')+'</div>'
+        + '<span class="tp-text'+(c.c?' done':'')+'">'+escapeHtml(c.t)+'</span>'
+        + '</div>';
+    }).join('') : '');
+    return '<div class="today-plan-card">'
+      + '<div class="today-plan-header" data-open-plan="' + p.id + '">'
+        + '<div class="badge plan">计划</div>'
+        + '<div class="tp-title"><div class="t-rec-title">'+escapeHtml(p.title)+'</div>'+tagHtml+'</div>'
+        + '<svg class="chev-gray" width="9" height="16" viewBox="0 0 9 16" fill="none"><path d="M1 1L8 8L1 15" stroke="#A0A4AE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        + '</div>'
+        + '<div class="today-plan-progress"><div class="tp-pbar"><i style="width:'+pct+'%"></i></div><div class="tp-pmeta"><span>'+p.done+'/'+p.total+' 项</span><span>'+pct+'%</span></div></div>'
+        + '<div class="today-plan-items">'+itemsHtml+'</div>'
+        + '</div>';
+  }).join('');
+  document.getElementById('todayPlanList').innerHTML = cards;
+
+  todayPlanCache = plans;
+  todayPlanItems = [];
+  plans.forEach(function(p){
+    var cl = p.checklist || [];
+    cl.forEach(function(c,i){ todayPlanItems.push({planId:p.id, idx:i, text:c.t, done:c.c}); });
+  });
+
+  document.getElementById('todayPlanBottombar').classList.toggle('show', pendingItems > 0 || totalItems > 0);
+}
+function todayPlanAllDone(){
+  return todayPlanItems.length > 0 && todayPlanItems.every(function(it){ return it.done; });
+}
+function todayPlanPendingCount(){
+  return todayPlanItems.filter(function(it){ return !it.done; }).length;
+}
+function toggleTodayPlanItem(planId, itemIdx){
+  var r = DB.records[planId];
+  if(!r || !r.checklist || itemIdx < 0 || itemIdx >= r.checklist.length) return;
+  r.checklist[itemIdx].c = !r.checklist[itemIdx].c;
+  saveDB();
+  playSound('toggle');
+  renderTodayPlan();
+}
+function markAllDone(){
+  allRecords().forEach(function(k){
+    var r = DB.records[k];
+    if(r.type !== 'plan' || r.date !== TODAY) return;
+    (r.checklist||[]).forEach(function(c){ c.c = true; });
+  });
+  saveDB();
+  playSound('success');
+  toast('今日待办全部完成 ✓');
+  renderTodayPlan();
+  setTimeout(function(){
+    var prev = navStack.length > 1 ? navStack[navStack.length-2] : {screen:'home'};
+    if(prev.screen === 'home') renderHome();
+    else if(prev.screen === 'folder') renderFolder(prev.id);
+    navStack.pop();
+    show(prev.screen);
+  }, 600);
+}
+function movePendingToNextDay(){
+  var pending = 0;
+  allRecords().forEach(function(k){
+    var r = DB.records[k];
+    if(r.type !== 'plan' || r.date !== TODAY) return;
+    var has = (r.checklist||[]).some(function(c){ return !c.c; });
+    if(has){ r.date = tomorrowStr(); pending++; }
+  });
+  if(pending === 0){ toast('没有未完成项'); return; }
+  saveDB();
+  playSound('success');
+  toast('已将 '+pending+' 个计划的未完成项移至明天');
+  renderTodayPlan();
+  setTimeout(function(){
+    var prev = navStack.length > 1 ? navStack[navStack.length-2] : {screen:'home'};
+    if(prev.screen === 'home') renderHome();
+    else if(prev.screen === 'folder') renderFolder(prev.id);
+    navStack.pop();
+    show(prev.screen);
+  }, 600);
+}
+function tomorrowStr(){
+  var d = new Date(); d.setDate(d.getDate()+1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 
 /* ============ INIT ============ */
 /* 恢复上次选择的导出文件夹（句柄持久化在 IndexedDB） */
