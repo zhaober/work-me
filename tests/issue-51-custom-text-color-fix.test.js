@@ -72,10 +72,10 @@ test('customTextColorVars 把 hex 转成带透明度的文字变量集合', () =
 });
 
 test('textShadowForHex 收紧阴影，文字更清晰（修复发虚）', () => {
-  // 深色字 → 浅色阴影；浅色字 → 深色阴影。模糊半径从 4px 收到 2~3px
-  assert.equal(textShadowForHex('#000000'), '0 1px 2px rgba(255,255,255,.9)');
-  assert.equal(textShadowForHex('#FFFFFF'), '0 1px 3px rgba(0,0,0,.55)');
-  assert.equal(textShadowForHex('#FFD54A'), '0 1px 3px rgba(0,0,0,.55)', '亮黄属于浅色，用深色阴影');
+  // 深色字 → 浅色阴影；浅色字 → 深色阴影。v1.6.5 双层阴影（近层锐利 + 远层柔化）
+  assert.equal(textShadowForHex('#000000'), '0 0 1px rgba(255,255,255,.95), 0 1px 2px rgba(255,255,255,.55)');
+  assert.equal(textShadowForHex('#FFFFFF'), '0 0 1px rgba(0,0,0,.95), 0 2px 5px rgba(0,0,0,.65)');
+  assert.equal(textShadowForHex('#FFD54A'), '0 0 1px rgba(0,0,0,.95), 0 2px 5px rgba(0,0,0,.65)', '亮黄属于浅色，用深色阴影');
 });
 
 test('normalizeTextColor / isHexColor 正确归一化自定义色', () => {

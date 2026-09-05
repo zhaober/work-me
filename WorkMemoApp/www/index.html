@@ -27,19 +27,12 @@
   .app.fs-normal{--app-font-scale:1;}
   .app.fs-large{--app-font-scale:1.125;}
   .app.fs-huge{--app-font-scale:1.25;}
-  .app[data-text-color="white"]{--text:#FFFFFF;--text-2:rgba(255,255,255,0.85);--text-3:rgba(255,255,255,0.65);--body:#FFFFFF;}
-  .app[data-text-color="black"]{--text:#000000;--text-2:rgba(0,0,0,0.8);--text-3:rgba(0,0,0,0.55);--body:#000000;}
-  .app.has-bg[data-text-color="auto"] .t-greet,
-  .app.has-bg[data-text-color="auto"] .t-date,
-  .app.has-bg[data-text-color="auto"] .t-section,
-  .app.has-bg[data-text-color="auto"] .t-title,
-  .app.has-bg[data-text-color="auto"] .t-name,
-  .app.has-bg[data-text-color="auto"] .t-rec-title,
-  .app.has-bg[data-text-color="auto"] .t-body,
-  .app.has-bg[data-text-color="auto"] .head .title,
-  .app.has-bg[data-text-color="auto"] .ov-big-plan,
-  .app.has-bg[data-text-color="auto"] .ov-big-review,
-  .app.has-bg[data-text-color="auto"] .newfolder,
+  .app[data-text-color="white"]{--text:#FFFFFF;--text-2:rgba(255,255,255,0.85);--text-3:rgba(255,255,255,0.65);--body:#FFFFFF;--text-shadow:0 0 1px rgba(0,0,0,.9),0 2px 5px rgba(0,0,0,.6);}
+  .app[data-text-color="black"]{--text:#000000;--text-2:rgba(0,0,0,0.8);--text-3:rgba(0,0,0,0.55);--body:#000000;--text-shadow:0 0 1px rgba(255,255,255,.95),0 2px 5px rgba(255,255,255,.5);}
+  /* 有背景图时，对主要文字元素加双层阴影（近层锐利 + 远层柔化）：
+     近层 0 0 1px 提供清晰轮廓，远层 0 2px 5px 提供深度，
+     避免 Android WebView 下 backdrop-filter 与单阴影叠加产生的重影/模糊。
+     custom/auto 模式由 --text-shadow 变量驱动（JS 写入或主题预设）。 */
   .app.has-bg[data-text-color="white"] .t-greet,
   .app.has-bg[data-text-color="white"] .t-date,
   .app.has-bg[data-text-color="white"] .t-section,
@@ -47,10 +40,14 @@
   .app.has-bg[data-text-color="white"] .t-name,
   .app.has-bg[data-text-color="white"] .t-rec-title,
   .app.has-bg[data-text-color="white"] .t-body,
+  .app.has-bg[data-text-color="white"] .t-meta,
   .app.has-bg[data-text-color="white"] .head .title,
   .app.has-bg[data-text-color="white"] .ov-big-plan,
   .app.has-bg[data-text-color="white"] .ov-big-review,
   .app.has-bg[data-text-color="white"] .newfolder,
+  .app.has-bg[data-text-color="white"] .me-action,
+  .app.has-bg[data-text-color="white"] .me-foot,
+  .app.has-bg[data-text-color="white"] .tp-text{text-shadow:var(--text-shadow);}
   .app.has-bg[data-text-color="black"] .t-greet,
   .app.has-bg[data-text-color="black"] .t-date,
   .app.has-bg[data-text-color="black"] .t-section,
@@ -58,33 +55,15 @@
   .app.has-bg[data-text-color="black"] .t-name,
   .app.has-bg[data-text-color="black"] .t-rec-title,
   .app.has-bg[data-text-color="black"] .t-body,
+  .app.has-bg[data-text-color="black"] .t-meta,
   .app.has-bg[data-text-color="black"] .head .title,
   .app.has-bg[data-text-color="black"] .ov-big-plan,
   .app.has-bg[data-text-color="black"] .ov-big-review,
-  .app.has-bg[data-text-color="black"] .newfolder{text-shadow:var(--text-shadow);}
-  .app.has-bg[data-text-color="white"] .t-greet,
-  .app.has-bg[data-text-color="white"] .t-date,
-  .app.has-bg[data-text-color="white"] .t-section,
-  .app.has-bg[data-text-color="white"] .t-title,
-  .app.has-bg[data-text-color="white"] .t-name,
-  .app.has-bg[data-text-color="white"] .t-rec-title,
-  .app.has-bg[data-text-color="white"] .t-body,
-  .app.has-bg[data-text-color="white"] .head .title,
-  .app.has-bg[data-text-color="white"] .ov-big-plan,
-  .app.has-bg[data-text-color="white"] .ov-big-review,
-  .app.has-bg[data-text-color="white"] .newfolder{text-shadow:0 1px 4px rgba(0,0,0,0.65);}
-  .app.has-bg[data-text-color="black"] .t-greet,
-  .app.has-bg[data-text-color="black"] .t-date,
-  .app.has-bg[data-text-color="black"] .t-section,
-  .app.has-bg[data-text-color="black"] .t-title,
-  .app.has-bg[data-text-color="black"] .t-name,
-  .app.has-bg[data-text-color="black"] .t-rec-title,
-  .app.has-bg[data-text-color="black"] .t-body,
-  .app.has-bg[data-text-color="black"] .head .title,
-  .app.has-bg[data-text-color="black"] .ov-big-plan,
-  .app.has-bg[data-text-color="black"] .ov-big-review,
-  .app.has-bg[data-text-color="black"] .newfolder{text-shadow:0 1px 3px rgba(255,255,255,0.75);}
-  /* 自定义文字颜色叠在背景图上时，用与颜色亮度相反的阴影保证可读（深色字→浅阴影，浅色字→深阴影） */
+  .app.has-bg[data-text-color="black"] .newfolder,
+  .app.has-bg[data-text-color="black"] .me-action,
+  .app.has-bg[data-text-color="black"] .me-foot,
+  .app.has-bg[data-text-color="black"] .tp-text{text-shadow:var(--text-shadow);}
+  /* 自定义文字颜色叠在背景图上时，阴影由 --text-shadow 变量提供（applyTextColor 写入） */
   .app.has-bg[data-text-color="custom"] .t-greet,
   .app.has-bg[data-text-color="custom"] .t-date,
   .app.has-bg[data-text-color="custom"] .t-section,
@@ -92,10 +71,30 @@
   .app.has-bg[data-text-color="custom"] .t-name,
   .app.has-bg[data-text-color="custom"] .t-rec-title,
   .app.has-bg[data-text-color="custom"] .t-body,
+  .app.has-bg[data-text-color="custom"] .t-meta,
   .app.has-bg[data-text-color="custom"] .head .title,
   .app.has-bg[data-text-color="custom"] .ov-big-plan,
   .app.has-bg[data-text-color="custom"] .ov-big-review,
-  .app.has-bg[data-text-color="custom"] .newfolder{text-shadow:var(--text-shadow);}
+  .app.has-bg[data-text-color="custom"] .newfolder,
+  .app.has-bg[data-text-color="custom"] .me-action,
+  .app.has-bg[data-text-color="custom"] .me-foot,
+  .app.has-bg[data-text-color="custom"] .tp-text{text-shadow:var(--text-shadow);}
+  /* auto 模式：文字颜色跟随主题，阴影按当前主题文字色预设 */
+  .app.has-bg[data-text-color="auto"] .t-greet,
+  .app.has-bg[data-text-color="auto"] .t-date,
+  .app.has-bg[data-text-color="auto"] .t-section,
+  .app.has-bg[data-text-color="auto"] .t-title,
+  .app.has-bg[data-text-color="auto"] .t-name,
+  .app.has-bg[data-text-color="auto"] .t-rec-title,
+  .app.has-bg[data-text-color="auto"] .t-body,
+  .app.has-bg[data-text-color="auto"] .t-meta,
+  .app.has-bg[data-text-color="auto"] .head .title,
+  .app.has-bg[data-text-color="auto"] .ov-big-plan,
+  .app.has-bg[data-text-color="auto"] .ov-big-review,
+  .app.has-bg[data-text-color="auto"] .newfolder,
+  .app.has-bg[data-text-color="auto"] .me-action,
+  .app.has-bg[data-text-color="auto"] .me-foot,
+  .app.has-bg[data-text-color="auto"] .tp-text{text-shadow:var(--text-shadow);}
   .screen{position:absolute;top:0;left:0;right:0;bottom:95px;overflow-y:auto;display:none;padding-top:env(safe-area-inset-top);}
   .screen.active{display:block;}
   .screen.editor{bottom:64px;}
@@ -357,6 +356,10 @@
   #app[data-style="glass"] .card,#app[data-style="glass"] .search,#app[data-style="glass"] .frow,#app[data-style="glass"] .scard,#app[data-style="glass"] .rec,#app[data-style="glass"] .me-card,#app[data-style="glass"] .calcard,#app[data-style="glass"] .checklist,#app[data-style="glass"] .linked,#app[data-style="glass"] .result-row,#app[data-style="glass"] .ov-card,#app[data-style="glass"] .priority-seg,#app[data-style="glass"] .modal-card{ background: color-mix(in srgb, var(--card) 66%, transparent); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%); border-color: color-mix(in srgb, var(--text) 12%, transparent); }
   #app[data-style="minimal"] .card,#app[data-style="minimal"] .search,#app[data-style="minimal"] .frow,#app[data-style="minimal"] .scard,#app[data-style="minimal"] .rec,#app[data-style="minimal"] .me-card,#app[data-style="minimal"] .calcard,#app[data-style="minimal"] .checklist,#app[data-style="minimal"] .linked,#app[data-style="minimal"] .result-row,#app[data-style="minimal"] .ov-card{ border-color: transparent; box-shadow: none; }
   #app[data-style="depth"] .card,#app[data-style="depth"] .scard,#app[data-style="depth"] .rec,#app[data-style="depth"] .me-card,#app[data-style="depth"] .calcard,#app[data-style="depth"] .ov-card,#app[data-style="depth"] .result-row{ box-shadow: 0 10px 28px rgba(0,0,0,.14); border-color: transparent; }
+  /* 有背景图时，glass 卡片禁用 backdrop-filter：Android WebView 下 backdrop-filter + 文字阴影
+     叠加会产生明显的重影/模糊（半透明卡片让模糊后的暗背景透出，与文字阴影互相干扰）。
+     改为近乎实心背景 + 极弱模糊，让文字坐在实心表面上。 */
+  .app.has-bg #app[data-style="glass"] .card,.app.has-bg #app[data-style="glass"] .search,.app.has-bg #app[data-style="glass"] .frow,.app.has-bg #app[data-style="glass"] .scard,.app.has-bg #app[data-style="glass"] .rec,.app.has-bg #app[data-style="glass"] .me-card,.app.has-bg #app[data-style="glass"] .calcard,.app.has-bg #app[data-style="glass"] .checklist,.app.has-bg #app[data-style="glass"] .linked,.app.has-bg #app[data-style="glass"] .result-row,.app.has-bg #app[data-style="glass"] .ov-card,.app.has-bg #app[data-style="glass"] .priority-seg,.app.has-bg #app[data-style="glass"] .modal-card,.app.has-bg #app[data-style="glass"] .today-plan-card,.app.has-bg #app[data-style="glass"] .today-review-card,.app.has-bg #app[data-style="glass"] .today-plan-stats .card{ background: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(8px) saturate(120%); -webkit-backdrop-filter: blur(8px) saturate(120%); border-color: color-mix(in srgb, var(--text) 18%, transparent); }
 
   /* 今日计划页面 */
   .today-plan-stats{display:flex;gap:12px;}
@@ -1148,6 +1151,12 @@ function show(id){
   document.getElementById('tabbar').classList.toggle('show', !isEditor);
   document.getElementById('editortoolbar').classList.toggle('show', isEditor);
   if(!isEditor){ var tab=scr.getAttribute('data-tab'); document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.getAttribute('data-tab')===tab); }); }
+  /* 今日计划底部操作栏：仅在 todayPlan 屏幕可见；切到其他屏幕时立刻隐藏，
+     避免退出后再进入时按钮错位浮动到底栏/导航栏位置 */
+  if(id !== 'todayPlan'){
+    var tpb = document.getElementById('todayPlanBottombar');
+    if(tpb) tpb.classList.remove('show');
+  }
   scr.scrollTop = 0;
 }
 

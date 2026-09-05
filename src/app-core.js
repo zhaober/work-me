@@ -408,8 +408,15 @@ export function relativeLuminance(s){
   var a = [c.r,c.g,c.b].map(function(v){ v = v/255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); });
   return 0.2126*a[0] + 0.7152*a[1] + 0.0722*a[2];
 }
-/** 根据自定义颜色生成文字阴影：深色字用浅阴影，浅色字用深阴影 */
-export function textShadowForHex(s){ return relativeLuminance(s) < 0.5 ? '0 1px 2px rgba(255,255,255,.9)' : '0 1px 3px rgba(0,0,0,.55)'; }
+/** 根据自定义颜色生成文字阴影：深色字用浅阴影，浅色字用深阴影。
+ *  使用双层阴影（近层锐利 + 远层柔化）提升深色背景上的对比度，
+ *  避免 Android WebView 下 backdrop-filter 与单阴影叠加产生的重影。 */
+export function textShadowForHex(s){
+  var dark = relativeLuminance(s) < 0.5;
+  return dark
+    ? '0 0 1px rgba(255,255,255,.95), 0 1px 2px rgba(255,255,255,.55)'
+    : '0 0 1px rgba(0,0,0,.95), 0 2px 5px rgba(0,0,0,.65)';
+}
 /** 自定义色转 CSS 变量集合（--text/--text-2/--text-3/--body）；非法返回 null */
 export function customTextColorVars(hex){
   var c = hexToRgb(hex); if(!c) return null;
