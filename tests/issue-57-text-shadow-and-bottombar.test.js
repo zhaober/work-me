@@ -57,9 +57,10 @@ test('Bug② renderTodayPlan 非空状态仍会 toggle show（回归保护）', 
 });
 
 test('Bug② 今日计划底部操作栏 HTML 与按钮 ID 保持不变', () => {
+  // 容忍容器/按钮上可能附带的其他属性（如编辑器注入的 data-* 节点标识）
   assert.match(
     HTML,
-    /<div class="today-plan-bottombar" id="todayPlanBottombar">[\s\S]*?id="tpDoneBtn"[^>]*>全部完成<\/button>[\s\S]*?id="tpMoveBtn"[^>]*>移到下一天<\/button>/,
+    /<div[^>]*class="today-plan-bottombar"[^>]*id="todayPlanBottombar"[\s\S]*?id="tpDoneBtn"[^>]*>全部完成<\/button>[\s\S]*?id="tpMoveBtn"[^>]*>移到下一天<\/button>/,
     '今日计划底部操作栏结构与按钮 ID 不变'
   );
 });

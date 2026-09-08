@@ -827,8 +827,9 @@
   </div>
 </div>
 
-<!-- SheetJS: Excel 解析库（课表导入用，本地文件，离线可用） -->
-<script src="xlsx.full.min.js"></script>
+<!-- SheetJS: Excel 解析库。不用 <script> 标签同步加载（881KB 会阻塞启动，
+     尤其 Android WebView 冷启动易超时触发看门狗误报"启动异常"），
+     改为在首次"导入 Excel"时按需动态注入，见 loadXlsxLibrary()。 -->
 
 <script type="module">
 "use strict";
@@ -3377,23 +3378,51 @@ function openScheduleSettings(){
 }
 
 /* ---- Excel 导入 ---- */
+
+/** 按需加载 SheetJS。881KB 库不在启动时加载（避免阻塞 + 看门狗误报），
+    仅在用户第一次点"导入 Excel"时才注入 <script> 加载。返回 Promise。 */
+var _xlsxPromise = null;
+function loadXlsxLibrary(){
+  if(typeof XLSX !== 'undefined') return Promise.resolve(XLSX);
+  if(_xlsxPromise) return _xlsxPromise;
+  _xlsxPromise = new Promise(function(resolve, reject){
+    var s = document.createElement('script');
+    s.src = 'xlsx.full.min.js';
+    s.onload = function(){ resolve(window.XLSX); };
+    s.onerror = function(){ _xlsxPromise = null; reject(new Error('xlsx.full.min.js 加载失败')); };
+    document.head.appendChild(s);
+    // 兜底超时：10 秒仍未就绪则报错，避免无限等待
+    setTimeout(function(){
+      if(typeof window.XLSX === 'undefined' && _xlsxPromise){
+        _xlsxPromise = null;
+        reject(new Error('加载 xlsx.full.min.js 超时'));
+      }
+    }, 10000);
+  });
+  return _xlsxPromise;
+}
+
 function importScheduleFromExcel(file){
   if(!file) return;
-  if(typeof XLSX === 'undefined'){ toast('Excel 解析库未加载'); return; }
-  var reader = new FileReader();
-  reader.onload = function(e){
-    try{
-      var data = new Uint8Array(e.target.result);
-      var workbook = XLSX.read(data, {type:'array'});
-      var sheet = workbook.Sheets[workbook.SheetNames[0]];
-      var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
-      parseAndImportSchedule(rows);
-    }catch(err){
-      toast('解析失败：'+(err.message||''));
-    }
-  };
-  reader.onerror = function(){ toast('文件读取失败'); };
-  reader.readAsArrayBuffer(file);
+  // 先确保解析库就绪（按需加载，首次可能需数百毫秒）
+  loadXlsxLibrary().then(function(){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var data = new Uint8Array(e.target.result);
+        var workbook = XLSX.read(data, {type:'array'});
+        var sheet = workbook.Sheets[workbook.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+        parseAndImportSchedule(rows);
+      }catch(err){
+        toast('解析失败：'+(err.message||''));
+      }
+    };
+    reader.onerror = function(){ toast('文件读取失败'); };
+    reader.readAsArrayBuffer(file);
+  }).catch(function(err){
+    toast('Excel 解析库加载失败：'+(err.message||''));
+  });
 }
 
 /** 解析 Excel 行数据并导入课表 */
