@@ -1083,7 +1083,12 @@ function loadFromLocalStorage(){
 async function idbHasData(){
   try{
     var rows = await noteDB.listNotes();
-    return rows.length > 0;
+    if(rows.length > 0) return true;
+    // 课表(courseSchedule)、文件夹、事件、设置等存在 meta 表，不产生笔记。
+    // 只建课表/导课表而无笔记时，若仅按笔记数判断会误判为"空库"，
+    // 跳过 loadFromIdb，导致退出后课表读不回来。这里补查 meta 表。
+    var meta = await noteDB.getAllMeta();
+    return !!(meta && Object.keys(meta).length > 0);
   }catch(e){ return false; }
 }
 
@@ -2627,6 +2632,12 @@ function initAppStateListener(){
       Cap.Plugins.App.addListener('appStateChange', function(state){
         if(state && state.isActive){
           try { rescheduleAllNotifications(); } catch(e){ /* 通知失败不影响主功能 */ }
+        } else {
+          /* 切后台/退出（isActive=false）：立即落盘。
+             移动端 WebView 里划掉 App / 返回键退出时 visibilitychange/pagehide
+             经常不触发，而 saveDB 又是 3 秒防抖——不在这里兜底，最后几秒的
+             改动（建学期、导课表、加课程）会丢。 */
+          flushPersist();
         }
       });
     }
