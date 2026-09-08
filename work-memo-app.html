@@ -1954,7 +1954,7 @@ document.getElementById('app').addEventListener('click', function(e){
   // record row (selection mode toggles instead of navigate)
   var rec=e.target.closest('[data-rec]'); if(rec){ if(selectionMode){ toggleSel(rec.getAttribute('data-rec')); } else { openRecord(rec.getAttribute('data-rec')); } return; }
   // tabs
-  var tab=e.target.closest('.tab'); if(tab){ var tid=tab.getAttribute('data-tab'); if(tid==='me'){ navTo('me'); return; } navStack=[{screen: tid==='folders'?'home':tid}]; if(tid==='folders') renderHome(); if(tid==='stats') renderStats(); if(tid==='calendar') renderCalendar(); if(tid==='schedule') renderSchedule(); show(tid==='folders?'home':tid); return; }
+  var tab=e.target.closest('.tab'); if(tab){ var tid=tab.getAttribute('data-tab'); if(tid==='me'){ navTo('me'); return; } navStack=[{screen: tid==='folders'?'home':tid}]; if(tid==='folders') renderHome(); if(tid==='stats') renderStats(); if(tid==='calendar') renderCalendar(); if(tid==='schedule') renderSchedule(); show(tid==='folders'?'home':tid); return; }
   // calendar prev month
   var cp=e.target.closest('[data-cal-prev]'); if(cp){ playSound('tap'); calMonth--; if(calMonth<0){ calMonth=11; calYear--; } renderCalendar(); return; }
   // calendar next month
@@ -3404,7 +3404,7 @@ function parseAndImportSchedule(rows){
   var headerIdx = -1;
   for(var i = 0; i < Math.min(rows.length, 10); i++){
     var row = rows[i].map(function(c){return String(c||'');});
-    if(row.some(function(c){return /课程名称|课程名|课程/.test(c);}) && row.some(function(c){return /上课时间|时间/.test(c);}))){
+    if(row.some(function(c){return /课程名称|课程名|课程/.test(c);}) && row.some(function(c){return /上课时间|时间/.test(c);})){
       headerIdx = i; break;
     }
   }
