@@ -5,6 +5,7 @@
 export const NAV_ITEMS = [
   { id: 'home', label: '首页' },
   { id: 'calendar', label: '日历' },
+  { id: 'timetable', label: '课表' },
   { id: 'stats', label: '统计' },
   { id: 'me', label: '我的' }
 ];

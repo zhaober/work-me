@@ -1,6 +1,6 @@
 {
   "name": "work-memo-app",
-  "version": "1.4.0",
+  "version": "1.7.0",
   "private": true,
   "type": "module",
   "description": "工作计划与复盘备忘录 App —— 单文件 HTML + Capacitor 封装，数据存 IndexedDB",
@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "fake-indexeddb": "^6.2.5"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

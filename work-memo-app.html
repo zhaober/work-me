@@ -411,6 +411,51 @@
   .today-review-empty .tr-emoji{font-size:48px;margin-bottom:12px;display:block;}
   .today-review-empty .tr-msg{font-size:15px;margin-bottom:6px;color:var(--text-2);font-weight:500;}
   .today-review-empty .tr-hint{font-size:12px;color:var(--text-3);line-height:1.5;}
+
+  /* 课表页面 */
+  .schedule-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;}
+  .schedule-header .t-section{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .schedule-week-nav{display:flex;align-items:center;gap:4px;}
+  .schedule-week-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:var(--card);border-radius:8px;color:var(--text-2);cursor:pointer;}
+  .schedule-week-label{font-size:13px;font-weight:600;color:var(--text);min-width:44px;text-align:center;}
+  .schedule-grid{display:grid;grid-template-columns:56px repeat(5,1fr);gap:2px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;min-height:0;flex:1;}
+  .schedule-grid .sg-header{background:var(--card);padding:8px 2px;font-size:11px;font-weight:600;color:var(--text-2);text-align:center;display:flex;align-items:center;justify-content:center;position:relative;}
+  .schedule-grid .sg-header.today-h{color:var(--accent);}
+  .schedule-grid .sg-time{background:var(--card);padding:8px 2px;font-size:10px;color:var(--text-3);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.3;border-right:1px solid var(--border);}
+  .schedule-grid .sg-cell{background:var(--bg);min-height:56px;padding:3px;position:relative;display:flex;flex-direction:column;gap:2px;overflow:hidden;}
+  .schedule-grid .sg-cell.today-c{background:color-mix(in srgb, var(--accent) 6%, var(--bg));}
+  .schedule-grid .sg-cell.empty-c{background:var(--card);}
+  .sg-block{border-radius:6px;padding:4px 6px;font-size:10px;line-height:1.3;cursor:pointer;overflow:hidden;border-left:3px solid;}
+  .sg-block .sg-title{font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sg-block .sg-room{font-size:9px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sg-block .sg-wk{font-size:9px;color:rgba(255,255,255,.6);}
+  .sg-now-line{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:2;pointer-events:none;}
+  .sg-now-dot{position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 2px rgba(231,76,60,.3);}
+  .schedule-actions{display:flex;gap:8px;margin-top:12px;}
+  .schedule-actions .btn{flex:1;}
+  .schedule-empty{padding:48px 24px;text-align:center;color:var(--text-3);}
+  .schedule-empty .se-emoji{font-size:48px;margin-bottom:12px;display:block;}
+  .schedule-empty .se-msg{font-size:15px;margin-bottom:6px;color:var(--text-2);font-weight:500;}
+  .schedule-empty .se-hint{font-size:12px;color:var(--text-3);line-height:1.5;}
+  /* 课节编辑弹窗 */
+  .sch-form{display:flex;flex-direction:column;gap:10px;padding:16px 20px;}
+  .sch-form .sf-row{display:flex;flex-direction:column;gap:4px;}
+  .sch-form .sf-label{font-size:12px;color:var(--text-3);font-weight:500;}
+  .sch-form .sf-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;box-sizing:border-box;}
+  .sch-form .sf-row-2{display:flex;gap:8px;}
+  .sch-form .sf-row-2 .sf-row{flex:1;}
+  .sch-color-picker{display:flex;gap:6px;flex-wrap:wrap;}
+  .sch-color-opt{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s;}
+  .sch-color-opt.active{border-color:var(--text);transform:scale(1.15);}
+  .sch-week-input{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .sch-week-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--card);border:1px solid var(--border);border-radius:12px;font-size:12px;}
+  .sch-week-tag .sw-del{cursor:pointer;color:var(--text-3);font-size:14px;line-height:1;}
+  .sch-week-add{display:flex;gap:4px;align-items:center;}
+  .sch-week-add input{width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;text-align:center;}
+  .sch-odd-even{display:flex;gap:6px;}
+  .sch-odd-even .style-chip{flex:1;text-align:center;font-size:12px;padding:6px 8px;}
+  .schedule-import-btn{position:relative;}
+  .schedule-import-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
 </style>
 <script>
 /* ============ 启动崩溃兜底（经典脚本，必须早于 module 脚本注册） ============
@@ -615,6 +660,24 @@
     </div>
   </section>
 
+  <!-- ================= SCREEN: SCHEDULE (课表) ================= -->
+  <section class="screen" id="schedule" data-tab="schedule">
+    <div class="content g16">
+      <div class="head">
+        <div class="title" style="font-size:18px">课表</div>
+        <div style="display:flex;gap:8px;">
+          <button class="icon-btn" id="schSemesterBtn" title="切换学期">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L10.5 6.5L15.5 7.2L11.75 10.7L12.75 15.5L8 13L3.25 15.5L4.25 10.7L0.5 7.2L5.5 6.5L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" id="schSettingsBtn" title="课表设置">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2.5V4M8 12V13.5M13.5 8H12M4 8H2.5M11.9 4.1L10.8 5.2M5.2 10.8L4.1 11.9M11.9 11.9L10.8 10.8M5.2 5.2L4.1 4.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="scheduleContent"></div>
+    </div>
+  </section>
+
   <!-- ================= SCREEN: ME ================= -->
   <section class="screen" id="me" data-tab="me">
     <div class="content g16" id="meContent"></div>
@@ -639,6 +702,10 @@
       <button class="tab" data-tab="calendar">
         <svg width="15" height="14" viewBox="0 0 15 14" fill="none"><rect x="1.5" y="2.5" width="12" height="10.5" rx="1.8" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 5.5H13.5M4.5 1V3.5M10.5 1V3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         <span>日历</span>
+      </button>
+      <button class="tab" data-tab="schedule">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6H14.5M5 2.5V14.5M9 2.5V14.5" stroke="currentColor" stroke-width="1.2"/></svg>
+        <span>课表</span>
       </button>
       <button class="tab" data-tab="stats">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1.5 13.5V8.5M5.2 13.5V4.8M8.9 13.5V10.5M12.5 13.5V1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -760,9 +827,13 @@
   </div>
 </div>
 
+<!-- SheetJS: Excel 解析库（课表导入用，本地文件，离线可用） -->
+<script src="xlsx.full.min.js"></script>
+
 <script type="module">
 "use strict";
 import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, repairRecordId, MAX_IMAGES_PER_RECORD, normalizeImageIds, recordImageIds, isImageIdUsed, collectUsedImageIds, buildImageGridHtml, nextImageIndex, formatImageCounter, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
+import { getDefaultSchedule, normalizeSchedule, getCurrentWeek, isSessionActiveInWeek, parseTimeField, parseWeekField, parseTeacherField, sessionBlockIndices, colorForCourse, getWeekInfo, getSessionsForDay, getActiveSemester, newSessionId, newSemesterId, DEFAULT_PERIOD_BLOCKS, WEEKDAY_NAMES, COURSE_COLORS } from './src/schedule-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -805,6 +876,7 @@ var DB = {
   folders: {},
   records: {},
   events: [],
+  courseSchedule: getDefaultSchedule(),
   settings: getDefaultSettings()
 };
 /** 当用户尝试新建记录却没有任何文件夹时，自动创建一个默认文件夹，避免记录无家可归 */
@@ -839,11 +911,12 @@ function idbSupported(){
 }
 
 /** 补齐记录字段：IndexedDB 以 id 为 keyPath，旧数据只有键没有 id 字段 */
-function applyDbShape(folders, records, events, settings){
+function applyDbShape(folders, records, events, settings, courseSchedule){
   if(storeBootAborted) return;   // 已超时降级，丢弃存储层迟到的结果
   if(folders) DB.folders = folders;
   if(records) DB.records = records;
   DB.events = events || [];
+  DB.courseSchedule = normalizeSchedule(courseSchedule || null);
   DB.settings = normalizeSettings(settings || null);
   Object.keys(DB.records).forEach(function(k){
     var r = DB.records[k];
@@ -939,7 +1012,7 @@ async function loadFromIdb(){
     var full = await noteDB.getNote(lightRows[i].id);  // 逐条按 id 精确取正文
     if(full) records[full.id] = full;
   }
-  applyDbShape(meta.folders, records, meta.events, meta.settings);
+  applyDbShape(meta.folders, records, meta.events, meta.settings, meta.courseSchedule);
   await hydrateImages();
   await refreshImageStats();
 }
@@ -952,7 +1025,7 @@ function loadFromLocalStorage(){
   try{
     var parsed = JSON.parse(raw);
     if(!parsed || !parsed.records) return false;
-    applyDbShape(parsed.folders, parsed.records, parsed.events, parsed.settings);
+    applyDbShape(parsed.folders, parsed.records, parsed.events, parsed.settings, parsed.courseSchedule);
     return true;
   }catch(e){ return false; }
 }
@@ -995,7 +1068,7 @@ async function bootstrapStore(){
 /* ---------- 写 ---------- */
 function saveDBLegacy(){
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records, events:DB.events, settings:DB.settings}));
+    localStorage.setItem(LS_KEY, JSON.stringify({folders:DB.folders, records:DB.records, events:DB.events, courseSchedule:DB.courseSchedule, settings:DB.settings}));
   } catch(e){
     // 关键：区分「本地存储配额已满」与「手机存储空间不足」——
     // 后者会让用户误以为手机没空间，实际满的是 localStorage 配额
@@ -1020,6 +1093,7 @@ async function persistToIdb(){
     await noteDB.putManyNotes(list, Date.now());
     await noteDB.setMeta('folders', DB.folders);
     await noteDB.setMeta('events', DB.events);
+    await noteDB.setMeta('courseSchedule', DB.courseSchedule);
     await noteDB.setMeta('settings', DB.settings);
     // 删除操作分散在多处，统一按差集清理，避免内存删了库里还在
     var rows = await noteDB.listNotes();
@@ -1166,12 +1240,14 @@ function currentNavId(){
   if(!st) return 'home';
   if(st.screen==='me') return 'me';
   if(st.screen==='calendar') return 'calendar';
+  if(st.screen==='schedule') return 'schedule';
   if(st.screen==='stats') return 'stats';
   return 'home';
 }
 function navIcon(id){
   if(id==='home') return '<span class="si-ico"><svg viewBox="0 0 16 16" fill="none"><path d="M2 7L8 2L14 7V13.5C14 13.8 13.8 14 13.5 14H10V10H6V14H2.5C2.2 14 2 13.8 2 13.5V7Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></span>';
   if(id==='calendar') return '<span class="si-ico"><svg viewBox="0 0 16 16" fill="none"><rect x="2.5" y="3" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 6H13.5M5 1.5V4M11 1.5V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>';
+  if(id==='schedule') return '<span class="si-ico"><svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 6H14.5M5 2.5V14.5M9 2.5V14.5" stroke="currentColor" stroke-width="1.2"/></svg></span>';
   if(id==='stats') return '<span class="si-ico"><svg viewBox="0 0 16 16" fill="none"><path d="M2.5 14V9M6.5 14V5M10.5 14V10.5M14 14V2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>';
   if(id==='me') return '<span class="si-ico"><svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 14C2.5 11 4.8 9.5 8 9.5C11.2 9.5 13.5 11 13.5 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>';
   return '';
@@ -1192,6 +1268,7 @@ function navTo(id){
   if(id==='me'){ renderMe(); }
   else if(id==='home'){ renderHome(); }
   else if(id==='calendar'){ renderCalendar(); }
+  else if(id==='schedule'){ renderSchedule(); }
   else if(id==='stats'){ renderStats(); }
   show(id);
   closeSidebar();
@@ -1860,7 +1937,7 @@ document.getElementById('app').addEventListener('click', function(e){
   // selection mode: toggle item checkbox
   var sel=e.target.closest('[data-sel]'); if(sel){ toggleSel(sel.getAttribute('data-sel')); return; }
   // back
-  var back=e.target.closest('[data-back]'); if(back){ if(navStack.length>1) navStack.pop(); var prev=navStack[navStack.length-1]; if(prev.screen==='folder'){ renderFolder(prev.id); } else if(prev.screen==='plan'||prev.screen==='review'){ loadEditor(prev.type, prev.recId, prev.folderId); paintEditor(); } else if(prev.screen==='home'){ renderHome(); } else if(prev.screen==='search'){ renderSearch(document.getElementById('searchInput').value); } else if(prev.screen==='calendar'){ renderCalendar(); } else if(prev.screen==='stats'){ renderStats(); } else if(prev.screen==='todayPlan'){ renderTodayPlan(); } else if(prev.screen==='todayReview'){ renderTodayReview(); } show(prev.screen); return; }
+  var back=e.target.closest('[data-back]'); if(back){ if(navStack.length>1) navStack.pop(); var prev=navStack[navStack.length-1]; if(prev.screen==='folder'){ renderFolder(prev.id); } else if(prev.screen==='plan'||prev.screen==='review'){ loadEditor(prev.type, prev.recId, prev.folderId); paintEditor(); } else if(prev.screen==='home'){ renderHome(); } else if(prev.screen==='search'){ renderSearch(document.getElementById('searchInput').value); } else if(prev.screen==='calendar'){ renderCalendar(); } else if(prev.screen==='stats'){ renderStats(); } else if(prev.screen==='todayPlan'){ renderTodayPlan(); } else if(prev.screen==='todayReview'){ renderTodayReview(); } else if(prev.screen==='schedule'){ renderSchedule(); } show(prev.screen); return; }
   // home folder row
   var fr=e.target.closest('[data-folder]'); if(fr){ goFolder(fr.getAttribute('data-folder')); return; }
   // search result folder/record
@@ -1877,7 +1954,7 @@ document.getElementById('app').addEventListener('click', function(e){
   // record row (selection mode toggles instead of navigate)
   var rec=e.target.closest('[data-rec]'); if(rec){ if(selectionMode){ toggleSel(rec.getAttribute('data-rec')); } else { openRecord(rec.getAttribute('data-rec')); } return; }
   // tabs
-  var tab=e.target.closest('.tab'); if(tab){ var tid=tab.getAttribute('data-tab'); if(tid==='me'){ navTo('me'); return; } navStack=[{screen: tid==='folders'?'home':tid}]; if(tid==='folders') renderHome(); if(tid==='stats') renderStats(); if(tid==='calendar') renderCalendar(); show(tid==='folders'?'home':tid); return; }
+  var tab=e.target.closest('.tab'); if(tab){ var tid=tab.getAttribute('data-tab'); if(tid==='me'){ navTo('me'); return; } navStack=[{screen: tid==='folders'?'home':tid}]; if(tid==='folders') renderHome(); if(tid==='stats') renderStats(); if(tid==='calendar') renderCalendar(); if(tid==='schedule') renderSchedule(); show(tid==='folders?'home':tid); return; }
   // calendar prev month
   var cp=e.target.closest('[data-cal-prev]'); if(cp){ playSound('tap'); calMonth--; if(calMonth<0){ calMonth=11; calYear--; } renderCalendar(); return; }
   // calendar next month
@@ -1906,6 +1983,39 @@ document.getElementById('app').addEventListener('click', function(e){
   if(e.target.id==='tpDoneBtn'){ markAllDone(); return; }
   // today plan: bottom bar - move pending to next day
   if(e.target.id==='tpMoveBtn'){ openConfirmModal('移到下一天', '将把今天未完成的待办移到明天。确定吗？', function(ok){ if(ok) movePendingToNextDay(); }); return; }
+  // 课表：周导航 - 上一周
+  if(e.target.id==='schPrevWeek'){ schViewWeek--; renderSchedule(); playSound('tap'); return; }
+  // 课表：周导航 - 下一周
+  if(e.target.id==='schNextWeek'){ schViewWeek++; renderSchedule(); playSound('tap'); return; }
+  // 课表：添加课程
+  if(e.target.id==='schAddCourse'){ openCourseModal(); return; }
+  // 课表：导入 Excel（点击按钮触发文件选择）
+  if(e.target.id==='schImportBtn'){ document.getElementById('schExcelInput').click(); return; }
+  // 课表：点击课程块编辑
+  var sid=e.target.closest('[data-sid]'); if(sid){ openCourseModal(sid.getAttribute('data-sid')); return; }
+  // 课表：创建学期（空状态）
+  if(e.target.id==='schNewSemester'){ openSemesterModal(); return; }
+  // 课表：导入 Excel（空状态）
+  if(e.target.id==='schImportExcel'){ openSemesterModal(); return; }
+  // 课表：学期管理按钮
+  if(e.target.id==='schSemesterBtn'){ openSemesterModal(); return; }
+  if(e.target.id==='schSettingsBtn'){ openScheduleSettings(); return; }
+  // 课表：设置弹窗 - 保存
+  if(e.target.id==='schSaveSettings'){
+    var blocks=DB.courseSchedule.periodBlocks||DEFAULT_PERIOD_BLOCKS;
+    for(var i=0;i<blocks.length;i++){
+      var lbl=document.getElementById('schPB'+i+'_label'); var tim=document.getElementById('schPB'+i+'_time');
+      if(lbl) blocks[i].label=lbl.value.trim()||blocks[i].label;
+      if(tim) blocks[i].timeLabel=tim.value.trim()||blocks[i].timeLabel;
+    }
+    saveDB(); closeModal(); renderSchedule(); toast('课表设置已保存'); return;
+  }
+  // 课表：学期管理弹窗 - 保存学期
+  if(e.target.id==='schSaveSem'){ saveSemester(); return; }
+  // 课表：学期管理弹窗 - 切换学期
+  var swsem=e.target.closest('[data-switch-sem]'); if(swsem){ DB.courseSchedule.activeSemesterId=swsem.getAttribute('data-switch-sem'); saveDB(); closeModal(); renderSchedule(); return; }
+  // 课表：学期管理弹窗 - 删除学期
+  var dsem=e.target.closest('[data-del-sem]'); if(dsem){ deleteSemester(dsem.getAttribute('data-del-sem')); return; }
   // editor save
   var sv=e.target.closest('[data-save]'); if(sv){ saveEditor(); return; }
   // editor delete
@@ -1938,6 +2048,11 @@ document.getElementById('newRootFolder').addEventListener('click', function(){ o
 
 /* export */
 document.getElementById('exportBtn').addEventListener('click', exportData);
+
+/* 课表：Excel 文件选择后触发导入 */
+document.addEventListener('change', function(e){
+  if(e.target.id==='schExcelInput'){ importScheduleFromExcel(e.target.files[0]); e.target.value=''; }
+});
 
 /* ============ FOLDER OPERATIONS ============ */
 function openFolderMenu(){
@@ -2881,6 +2996,487 @@ function reviewItemHtml(recId, r, isToday){
     '</div>';
 }
 
+/* ---- 自定义弹窗（带表单的模态框） ---- */
+var _customModalCleanup = null;
+function openCustomModal(title, html, opts){
+  opts = opts || {};
+  playSound('pop');
+  modalTitle.textContent = title;
+  // 清空原 card 内容，替换为自定义 HTML
+  var card = document.querySelector('.modal-card');
+  card.innerHTML = '<div class="mtitle">'+escapeHtml(title)+'</div>' + html +
+    (opts.confirmText ? '<div class="modal-actions"><button id="modalOk" class="primary">'+escapeHtml(opts.confirmText)+'</button></div>' : '');
+  // 隐藏旧 input
+  modalOverlay.classList.add('show');
+  // 清理旧绑定
+  if(_customModalCleanup){ try{_customModalCleanup();}catch(e){} _customModalCleanup = null; }
+  // 确认按钮：点击关闭
+  var okBtn = document.getElementById('modalOk');
+  if(okBtn){ okBtn.addEventListener('click', closeModal); }
+  _customModalCleanup = function(){
+    var card2 = document.querySelector('.modal-card');
+    if(card2) card2.innerHTML = '<div class="mtitle" id="modalTitle">标题</div><div class="mmsg" id="modalMsg" style="display:none"></div><input type="text" id="modalInput" placeholder=""><div class="modal-actions"><button id="modalCancel">取消</button><button class="primary" id="modalOk">确定</button></div>';
+  };
+}
+
+/* ============ SCHEDULE (课表) ============ */
+var schViewWeek = 0;   // 当前查看的周（0=当前周，-1=上周，+1=下周）
+
+/** 渲染课表页面 */
+function renderSchedule(){
+  var schedule = DB.courseSchedule;
+  var semester = getActiveSemester(schedule);
+  var blocks = schedule.periodBlocks || DEFAULT_PERIOD_BLOCKS;
+
+  // 无学期 → 空状态
+  if(!semester){
+    document.getElementById('scheduleContent').innerHTML =
+      '<div class="schedule-empty"><span class="se-emoji">📅</span>'+
+      '<div class="se-msg">还没有学期</div>'+
+      '<div class="se-hint">创建学期并导入课表，<br/>即可在周视图上查看课程安排</div></div>'+
+      '<div class="schedule-actions"><button class="btn btn-primary" id="schNewSemester">＋ 创建学期</button>'+
+      '<button class="btn btn-secondary" id="schImportExcel">📄 导入 Excel</button></div>';
+    return;
+  }
+
+  // 计算当前周
+  var weekInfo = getWeekInfo(semester.startDate || '', TODAY);
+  var viewWeek = weekInfo.weekNum + schViewWeek;
+  if(viewWeek < 1) viewWeek = 1;
+  if(viewWeek > (semester.totalWeeks || 17)) viewWeek = semester.totalWeeks || 17;
+
+  var todayDow = (new Date().getDay() + 6) % 7; // 0=周一
+  var weekdays = [0,1,2,3,4]; // 周一到周五（默认不显示周六周日）
+
+  // 构建网格 HTML
+  var gridHtml = '<div class="schedule-grid">';
+  // 表头行：空 + 星期
+  gridHtml += '<div class="sg-header"></div>';
+  weekdays.forEach(function(wd){
+    var isToday = (viewWeek === weekInfo.weekNum && wd === todayDow);
+    gridHtml += '<div class="sg-header'+(isToday?' today-h':'')+'">'+WEEKDAY_NAMES[wd]+(isToday?'<br/><span style="font-size:9px;color:var(--accent)">今天</span>':'')+'</div>';
+  });
+
+  // 每个节次块一行
+  blocks.forEach(function(block, bi){
+    gridHtml += '<div class="sg-time">'+block.label+'<br/><span style="font-size:9px">'+block.timeLabel+'</span></div>';
+    weekdays.forEach(function(wd){
+      var sessions = getSessionsForDay(semester, wd, viewWeek, weekInfo.isOddWeek);
+      var isTodayCell = (viewWeek === weekInfo.weekNum && wd === todayDow);
+      var cellHtml = '<div class="sg-cell'+(isTodayCell?' today-c':'')+'">';
+      // 检查当前时间是否在此块内
+      var nowBlockIdx = currentBlockIndex(blocks);
+      var isNowBlock = (bi === nowBlockIdx && isTodayCell);
+      // 渲染课节
+      var cellSessions = sessions.filter(function(s){
+        var idxs = sessionBlockIndices(s.periodStart, s.periodEnd, blocks);
+        return idxs.indexOf(bi) >= 0;
+      });
+      cellSessions.forEach(function(s){
+        var wkLabel = formatWeekLabel(s);
+        cellHtml += '<div class="sg-block" data-sid="'+s.id+'" style="background:'+s.color+';border-left-color:'+s.color+'" title="'+escapeHtml(s.courseName)+'">' +
+          '<div class="sg-title">'+escapeHtml(s.courseName)+'</div>' +
+          '<div class="sg-room">'+escapeHtml(s.classroom||'')+'</div>' +
+          (wkLabel?'<div class="sg-wk">'+wkLabel+'</div>':'') +
+          '</div>';
+      });
+      // 当前课高亮线
+      if(isNowBlock){
+        cellHtml += '<div class="sg-now-line"><div class="sg-now-dot"></div></div>';
+      }
+      cellHtml += '</div>';
+      gridHtml += cellHtml;
+    });
+  });
+  gridHtml += '</div>';
+
+  // 周导航
+  var weekNav = '<div class="schedule-week-nav">' +
+    '<button class="schedule-week-btn" id="schPrevWeek"><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M6 1L1 7L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+    '<span class="schedule-week-label">第'+viewWeek+'周</span>' +
+    '<button class="schedule-week-btn" id="schNextWeek"><svg width="7" height="14" viewBox="0 0 7 14" fill="none"><path d="M1 1L6 7L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+    '</div>';
+
+  // 学期信息 + 操作按钮
+  var headerHtml = '<div class="schedule-header">' +
+    '<div class="t-section">'+escapeHtml(semester.name)+'</div>' +
+    weekNav +
+    '</div>';
+
+  // 空课表提示
+  var allSessions = semester.sessions || [];
+  if(allSessions.length === 0){
+    var emptyHtml = '<div class="schedule-empty"><span class="se-emoji">📚</span>'+
+      '<div class="se-msg">这学期还没有课</div>'+
+      '<div class="se-hint">导入 Excel 课表或手动添加课程</div></div>';
+  } else {
+    var emptyHtml = '';
+  }
+
+  // 操作按钮
+  var actionsHtml = '<div class="schedule-actions">' +
+    '<button class="btn btn-primary" id="schAddCourse">＋ 添加课程</button>' +
+    '<div class="schedule-import-btn"><button class="btn btn-secondary" id="schImportBtn">📄 导入 Excel</button>' +
+    '<input type="file" id="schExcelInput" accept=".xls,.xlsx"></div>' +
+    '</div>';
+
+  document.getElementById('scheduleContent').innerHTML = headerHtml + gridHtml + emptyHtml + actionsHtml;
+}
+
+/** 判断当前时间在哪个节次块 */
+function currentBlockIndex(blocks){
+  var now = new Date();
+  var mins = now.getHours() * 60 + now.getMinutes();
+  for(var i = blocks.length - 1; i >= 0; i--){
+    var b = blocks[i];
+    var sp = b.periodStart, ep = b.periodEnd;
+    // 用 timeLabel 解析时间
+    var tm = (b.timeLabel||'').match(/(\d{2}):(\d{2})\s*[-–]\s*(\d{2}):(\d{2})/);
+    if(tm){
+      var sM = parseInt(tm[1],10)*60 + parseInt(tm[2],10);
+      var eM = parseInt(tm[3],10)*60 + parseInt(tm[4],10);
+      if(mins >= sM && mins <= eM) return i;
+    }
+  }
+  return -1;
+}
+
+/** 格式化课节周次标签 */
+function formatWeekLabel(session){
+  if(!session.weeks || !session.weeks.length) return '';
+  var parts = session.weeks.map(function(r){
+    return r[0] === r[1] ? '第'+r[0]+'周' : '第'+r[0]+'-'+r[1]+'周';
+  });
+  var label = parts.join(',');
+  if(session.isOddEven === 'odd') label += '(单)';
+  if(session.isOddEven === 'even') label += '(双)';
+  return label;
+}
+
+/* ---- 学期管理 ---- */
+function openSemesterModal(){
+  var schedule = DB.courseSchedule;
+  var semester = getActiveSemester(schedule);
+  var semList = Object.values(schedule.semesters || {});
+  var optionsHtml = semList.map(function(s){
+    var active = s.id === schedule.activeSemesterId;
+    return '<div class="sf-row" style="flex-direction:row;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">' +
+      '<div><div style="font-size:14px;font-weight:500">'+escapeHtml(s.name)+'</div>'+
+      '<div class="t-meta">'+(s.startDate||'')+' · '+(s.totalWeeks||17)+'周 · '+(s.sessions||[]).length+' 节课</div></div>' +
+      '<div style="display:flex;gap:6px">' +
+      (active?'<span style="font-size:11px;color:var(--accent);padding:4px 8px;background:var(--accent-soft);border-radius:8px">当前</span>':'<button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" data-switch-sem="'+s.id+'">切换</button>') +
+      '<button class="btn btn-secondary" style="padding:6px 10px;font-size:12px;color:var(--danger)" data-del-sem="'+s.id+'">删除</button>' +
+      '</div></div>';
+  }).join('');
+  var html = '<div class="sch-form">' +
+    (semList.length ? '<div class="sf-label" style="margin-bottom:4px">已有学期</div>'+optionsHtml : '<div class="t-meta" style="text-align:center;padding:12px">还没有学期</div>') +
+    '<div class="sf-row" style="margin-top:8px"><div class="sf-label">学期名称</div><input class="sf-input" id="schSemName" placeholder="如：2025-2026学年第二学期" value="'+(semester?escapeHtml(semester.name):'')+'"></div>' +
+    '<div class="sf-row-2"><div class="sf-row"><div class="sf-label">开学日期（周一）</div><input class="sf-input" id="schSemStart" type="date" value="'+(semester?escapeHtml(semester.startDate||''):'')+'"></div>' +
+    '<div class="sf-row"><div class="sf-label">总周数</div><input class="sf-input" id="schSemWeeks" type="number" min="1" max="30" value="'+(semester?(semester.totalWeeks||17):17)+'"></div></div>' +
+    '<button class="btn btn-primary" id="schSaveSem">保存学期</button>' +
+    '</div>';
+  openCustomModal('学期管理', html, {confirmText:'关闭'});
+}
+
+function saveSemester(){
+  var name = (document.getElementById('schSemName')||{}).value;
+  var startDate = (document.getElementById('schSemStart')||{}).value;
+  var totalWeeks = parseInt((document.getElementById('schSemWeeks')||{}).value, 10) || 17;
+  if(!name || !name.trim()) { toast('请输入学期名称'); return; }
+  name = name.trim();
+  var schedule = DB.courseSchedule;
+  var semester = getActiveSemester(schedule);
+  if(semester){
+    semester.name = name;
+    if(startDate) semester.startDate = startDate;
+    semester.totalWeeks = totalWeeks;
+  } else {
+    var id = newSemesterId();
+    schedule.semesters[id] = { id:id, name:name, startDate:startDate||'', totalWeeks:totalWeeks, sessions:[] };
+    schedule.activeSemesterId = id;
+  }
+  saveDB();
+  closeModal();
+  renderSchedule();
+  toast('学期已保存');
+  playSound('success');
+}
+
+function deleteSemester(id){
+  var schedule = DB.courseSchedule;
+  if(!schedule.semesters[id]) return;
+  openConfirmModal('删除学期', '确定删除该学期？所有课节数据将丢失。', function(ok){
+    if(!ok) return;
+    delete schedule.semesters[id];
+    if(schedule.activeSemesterId === id){
+      var ids = Object.keys(schedule.semesters);
+      schedule.activeSemesterId = ids.length ? ids[0] : '';
+    }
+    saveDB();
+    closeModal();
+    renderSchedule();
+    toast('学期已删除');
+  });
+}
+
+/* ---- 课程 CRUD ---- */
+var schEditingSessionId = null;
+
+function openCourseModal(sessionId){
+  schEditingSessionId = sessionId || null;
+  var session = sessionId ? getActiveSemester(DB.courseSchedule) && getActiveSemester(DB.courseSchedule).sessions.find(function(s){return s.id===sessionId;}) : null;
+  var blocks = DB.courseSchedule.periodBlocks || DEFAULT_PERIOD_BLOCKS;
+  var colors = COURSE_COLORS;
+
+  var colorHtml = colors.map(function(c, i){
+    var active = session && session.color === c;
+    return '<div class="sch-color-opt'+(active?' active':'')+'" data-color="'+c+'" style="background:'+c+'"></div>';
+  }).join('');
+
+  var wdHtml = WEEKDAY_NAMES.map(function(w, i){
+    var active = session && session.weekday === i;
+    return '<div class="style-chip'+(active?' active':'')+'" data-wd="'+i+'" style="flex:1;text-align:center;padding:8px 4px;font-size:12px">'+w+'</div>';
+  }).join('');
+
+  var blockHtml = blocks.map(function(b, i){
+    var active = session && (b.periodStart >= session.periodStart && b.periodEnd <= session.periodEnd);
+    return '<div class="style-chip'+(active?' active':'')+'" data-block="'+i+'" style="flex:1;text-align:center;padding:8px 4px;font-size:11px">'+b.label+'</div>';
+  }).join('');
+
+  var weeksHtml = '';
+  if(session && session.weeks && session.weeks.length){
+    weeksHtml = session.weeks.map(function(r, idx){
+      return '<div class="sch-week-tag">第'+r[0]+'-'+r[1]+'周 <span class="sw-del" data-del-wk="'+idx+'">×</span></div>';
+    }).join('');
+  }
+
+  var oeOpts = ['all','odd','even'].map(function(o){
+    var active = session && session.isOddEven === o;
+    var label = o==='all'?'不限':o==='odd'?'单周':'双周';
+    return '<div class="style-chip'+(active?' active':'')+'" data-oe="'+o+'" style="flex:1;text-align:center;padding:8px 4px;font-size:12px">'+label+'</div>';
+  }).join('');
+
+  var html = '<div class="sch-form">' +
+    '<div class="sf-row"><div class="sf-label">课程名称 *</div><input class="sf-input" id="schCName" placeholder="如：经济法" value="'+(session?escapeHtml(session.courseName):'')+'"></div>' +
+    '<div class="sf-row"><div class="sf-label">教室 *</div><input class="sf-input" id="schRoom" placeholder="如：E-514" value="'+(session?escapeHtml(session.classroom||''):'')+'"></div>' +
+    '<div class="sf-row"><div class="sf-label">任课老师</div><input class="sf-input" id="schTeacher" placeholder="如：徐媛" value="'+(session?escapeHtml(session.teacher||''):'')+'"></div>' +
+    '<div class="sf-row"><div class="sf-label">星期 *</div><div class="sf-row-2">'+wdHtml+'</div></div>' +
+    '<div class="sf-row"><div class="sf-label">节次 *</div><div class="sf-row-2">'+blockHtml+'</div></div>' +
+    '<div class="sf-row"><div class="sf-label">颜色</div><div class="sch-color-picker">'+colorHtml+'</div></div>' +
+    '<div class="sf-row"><div class="sf-label">上课周（可选）</div><div class="sch-week-input">'+weeksHtml+'<div class="sch-week-add"><input id="schWkStart" placeholder="起"><span>-</span><input id="schWkEnd" placeholder="止"><button class="btn btn-secondary" style="padding:4px 8px;font-size:11px" id="schAddWk">＋</button></div></div></div>' +
+    '<div class="sf-row"><div class="sf-label">单双周</div><div class="sch-odd-even">'+oeOpts+'</div></div>' +
+    '<div class="sf-row"><div class="sf-label">备注</div><input class="sf-input" id="schNotes" placeholder="可选" value="'+(session?escapeHtml(session.notes||''):'')+'"></div>' +
+    (sessionId?'<button class="btn btn-secondary" style="color:var(--danger)" id="schDelCourse">删除课程</button>':'') +
+    '<button class="btn btn-primary" id="schSaveCourse">保存课程</button>' +
+    '</div>';
+  openCustomModal(session?'编辑课程':'添加课程', html, {confirmText:'关闭'});
+  var chosenColor = session ? session.color : COURSE_COLORS[0];
+  var chosenWd = session ? session.weekday : -1;
+  var chosenBlock = -1;
+  var chosenOe = session ? session.isOddEven : 'all';
+
+  // 绑定颜色选择
+  document.querySelector('.modal-card').addEventListener('click', function(e){
+    var co = e.target.closest('.sch-color-opt');
+    if(co){ chosenColor = co.getAttribute('data-color'); document.querySelectorAll('.sch-color-opt').forEach(function(el){ el.classList.toggle('active', el===co); }); }
+    var wdo = e.target.closest('[data-wd]');
+    if(wdo){ chosenWd = parseInt(wdo.getAttribute('data-wd'),10); document.querySelectorAll('[data-wd]').forEach(function(el){ el.classList.toggle('active', el===wdo); }); }
+    var blo = e.target.closest('[data-block]');
+    if(blo){ chosenBlock = parseInt(blo.getAttribute('data-block'),10); document.querySelectorAll('[data-block]').forEach(function(el){ el.classList.toggle('active', el===blo); }); }
+    var oe = e.target.closest('[data-oe]');
+    if(oe){ chosenOe = oe.getAttribute('data-oe'); document.querySelectorAll('[data-oe]').forEach(function(el){ el.classList.toggle('active', el===oe); }); }
+    var dwk = e.target.closest('[data-del-wk]');
+    if(dwk){ var wks = document.querySelectorAll('.sch-week-tag'); wks[parseInt(dwk.getAttribute('data-del-wk'),10)].remove(); }
+    var addWk = e.target.closest('#schAddWk');
+    if(addWk){ var ws = parseInt(document.getElementById('schWkStart').value,10), we = parseInt(document.getElementById('schWkEnd').value,10); if(ws>0&&we>=ws){ var tag = document.createElement('div'); tag.className='sch-week-tag'; tag.innerHTML='第'+ws+'-'+we+'周 <span class="sw-del" data-del-wk="'+document.querySelectorAll('.sch-week-tag').length+'">×</span>'; document.querySelector('.sch-week-input').insertBefore(tag, document.querySelector('.sch-week-add')); document.getElementById('schWkStart').value=''; document.getElementById('schWkEnd').value=''; } }
+    var save = e.target.closest('#schSaveCourse');
+    if(save){ saveCourse(chosenColor, chosenWd, chosenBlock, chosenOe); }
+    var del = e.target.closest('#schDelCourse');
+    if(del){ deleteCourse(sessionId); }
+  });
+}
+
+function saveCourse(color, weekday, blockIdx, isOddEven){
+  var schedule = DB.courseSchedule;
+  var semester = getActiveSemester(schedule);
+  if(!semester){ toast('请先创建学期'); return; }
+  var name = (document.getElementById('schCName')||{}).value;
+  var room = (document.getElementById('schRoom')||{}).value;
+  var teacher = (document.getElementById('schTeacher')||{}).value;
+  var notes = (document.getElementById('schNotes')||{}).value;
+  if(!name || !name.trim()) { toast('请输入课程名称'); return; }
+  if(!room || !room.trim()) { toast('请输入教室'); return; }
+  if(weekday < 0) { toast('请选择星期'); return; }
+  if(blockIdx < 0) { toast('请选择节次'); return; }
+
+  var blocks = schedule.periodBlocks || DEFAULT_PERIOD_BLOCKS;
+  var block = blocks[blockIdx];
+
+  // 收集周次
+  var weeks = [];
+  document.querySelectorAll('.sch-week-tag').forEach(function(tag){
+    var m = tag.textContent.match(/第(\d+)-(\d+)周/);
+    if(m) weeks.push([parseInt(m[1],10), parseInt(m[2],10)]);
+  });
+
+  var sessionData = {
+    id: schEditingSessionId || newSessionId(),
+    courseName: name.trim(),
+    classroom: room.trim(),
+    teacher: teacher ? teacher.trim() : '',
+    weekday: weekday,
+    periodStart: block.periodStart,
+    periodEnd: block.periodEnd,
+    color: color,
+    weeks: weeks,
+    isOddEven: isOddEven,
+    notes: notes ? notes.trim() : ''
+  };
+
+  if(schEditingSessionId){
+    var idx = semester.sessions.findIndex(function(s){return s.id===schEditingSessionId;});
+    if(idx >= 0) semester.sessions[idx] = sessionData;
+  } else {
+    semester.sessions.push(sessionData);
+  }
+  saveDB();
+  closeModal();
+  renderSchedule();
+  toast('课程已保存');
+  playSound('success');
+}
+
+function deleteCourse(sessionId){
+  var semester = getActiveSemester(DB.courseSchedule);
+  if(!semester) return;
+  openConfirmModal('删除课程', '确定删除该课程？', function(ok){
+    if(!ok) return;
+    semester.sessions = semester.sessions.filter(function(s){return s.id !== sessionId;});
+    saveDB();
+    closeModal();
+    renderSchedule();
+    toast('课程已删除');
+  });
+}
+
+/* ---- 课表设置 ---- */
+function openScheduleSettings(){
+  var blocks = DB.courseSchedule.periodBlocks || DEFAULT_PERIOD_BLOCKS;
+  var html = '<div class="sch-form">' +
+    '<div class="t-meta" style="margin-bottom:4px">调整节次时间，与学校实际作息匹配。</div>' +
+    blocks.map(function(b, i){
+      return '<div class="sf-row" style="flex-direction:row;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">' +
+        '<div style="font-size:13px;font-weight:500;min-width:64px">'+escapeHtml(b.label)+'</div>' +
+        '<input class="sf-input" id="schPB'+i+'_label" value="'+escapeHtml(b.label)+'" style="flex:1;min-width:0;padding:6px 8px;font-size:12px">' +
+        '<input class="sf-input" id="schPB'+i+'_time" value="'+escapeHtml(b.timeLabel)+'" style="flex:1;min-width:0;padding:6px 8px;font-size:12px" placeholder="08:00-09:40">' +
+        '</div>';
+    }).join('') +
+    '<button class="btn btn-primary" id="schSaveSettings">保存设置</button>' +
+    '</div>';
+  openCustomModal('课表设置', html, {confirmText:'关闭'});
+}
+
+/* ---- Excel 导入 ---- */
+function importScheduleFromExcel(file){
+  if(!file) return;
+  if(typeof XLSX === 'undefined'){ toast('Excel 解析库未加载'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var data = new Uint8Array(e.target.result);
+      var workbook = XLSX.read(data, {type:'array'});
+      var sheet = workbook.Sheets[workbook.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+      parseAndImportSchedule(rows);
+    }catch(err){
+      toast('解析失败：'+(err.message||''));
+    }
+  };
+  reader.onerror = function(){ toast('文件读取失败'); };
+  reader.readAsArrayBuffer(file);
+}
+
+/** 解析 Excel 行数据并导入课表 */
+function parseAndImportSchedule(rows){
+  if(!rows || rows.length < 3){ toast('Excel 格式不正确'); return; }
+
+  // 找表头行（包含"课程名称"或"课程"的行）
+  var headerIdx = -1;
+  for(var i = 0; i < Math.min(rows.length, 10); i++){
+    var row = rows[i].map(function(c){return String(c||'');});
+    if(row.some(function(c){return /课程名称|课程名|课程/.test(c);}) && row.some(function(c){return /上课时间|时间/.test(c);}))){
+      headerIdx = i; break;
+    }
+  }
+  if(headerIdx < 0){ toast('找不到表头行'); return; }
+
+  // 找列索引
+  var headers = rows[headerIdx].map(function(c){return String(c||'').trim();});
+  var colMap = { name:-1, time:-1, teacher:-1, weeks:-1, room:-1 };
+  headers.forEach(function(h, i){
+    if(/课程名称|课程名|课程/.test(h)) colMap.name = i;
+    if(/上课时间|时间/.test(h)) colMap.time = i;
+    if(/任课老师|老师|教师/.test(h)) colMap.teacher = i;
+    if(/上课周|周次|周/.test(h) && !/星期/.test(h)) colMap.weeks = i;
+    if(/上课地点|地点|教室/.test(h)) colMap.room = i;
+  });
+  if(colMap.name < 0 || colMap.time < 0){ toast('找不到"课程名称"或"上课时间"列'); return; }
+
+  // 解析数据行
+  var sessions = [];
+  var colorCache = {};
+  for(var r = headerIdx + 1; r < rows.length; r++){
+    var row = rows[r];
+    if(!row) continue;
+    var name = String(row[colMap.name]||'').trim();
+    if(!name) continue;
+    var timeStr = String(row[colMap.time]||'').trim();
+    var timeParsed = parseTimeField(timeStr);
+    if(!timeParsed) continue;
+    var weeksStr = colMap.weeks >= 0 ? String(row[colMap.weeks]||'').trim() : '';
+    var weeks = parseWeekField(weeksStr);
+    var teacher = colMap.teacher >= 0 ? parseTeacherField(String(row[colMap.teacher]||'').trim()) : '';
+    var room = colMap.room >= 0 ? String(row[colMap.room]||'').trim() : '';
+
+    // 颜色：同名课同一色
+    if(!colorCache[name]) colorCache[name] = colorForCourse(name);
+
+    sessions.push({
+      id: newSessionId(),
+      courseName: name,
+      classroom: room,
+      teacher: teacher,
+      weekday: timeParsed.weekday,
+      periodStart: timeParsed.periodStart,
+      periodEnd: timeParsed.periodEnd,
+      color: colorCache[name],
+      weeks: weeks,
+      isOddEven: 'all',
+      notes: ''
+    });
+  }
+
+  if(sessions.length === 0){ toast('未解析到有效课节'); return; }
+
+  // 导入到当前学期（无学期则创建）
+  var schedule = DB.courseSchedule;
+  var semester = getActiveSemester(schedule);
+  if(!semester){
+    var sid = newSemesterId();
+    var today = new Date();
+    var monday = new Date(today); monday.setDate(today.getDate() - (today.getDay() || 7));
+    var startStr = monday.getFullYear()+'-'+String(monday.getMonth()+1).padStart(2,'0')+'-'+String(monday.getDate()).padStart(2,'0');
+    schedule.semesters[sid] = { id:sid, name:'新学期', startDate:startStr, totalWeeks:17, sessions:[] };
+    schedule.activeSemesterId = sid;
+    semester = schedule.semesters[sid];
+  }
+  semester.sessions = semester.sessions.concat(sessions);
+  saveDB();
+  renderSchedule();
+  toast('成功导入 '+sessions.length+' 节课');
+  playSound('success');
+}
+
 /* ============ INIT ============ */
 /* 恢复上次选择的导出文件夹（句柄持久化在 IndexedDB） */
 loadExportDirHandle().then(function(h){ if(h){ exportDirHandle=h; exportDirLabel=h.name||'所选文件夹'; } });
@@ -2896,7 +3492,7 @@ raceTimeout(bootstrapStore(), BOOT_STORE_TIMEOUT, BOOT_TIMEOUT_SENTINEL).then(fu
     storeBootAborted = true;   // 同步语句，不会被迟到的 IndexedDB 结果插入
   }
   loadSettings();
-  renderHome(); renderCalendar(); renderStats();
+  renderHome(); renderCalendar(); renderStats(); renderSchedule();
   maybeAutoShowQuote();
   /* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
   armAllReminders();
@@ -2910,7 +3506,7 @@ raceTimeout(bootstrapStore(), BOOT_STORE_TIMEOUT, BOOT_TIMEOUT_SENTINEL).then(fu
 }).catch(function(e){
   // 存储层异常不应让 App 白屏：用内存中的（空/降级）数据继续启动
   loadSettings();
-  renderHome(); renderCalendar(); renderStats();
+  renderHome(); renderCalendar(); renderStats(); renderSchedule();
   markBootOk();
   // App 已经起来了，但把异常留档，便于下次打开时排查
   if(window.__wmSaveCrash) window.__wmSaveCrash('promise', (e && e.message) || String(e), (e && e.stack) || '');
