@@ -2057,12 +2057,12 @@ document.getElementById('app').addEventListener('click', function(e){
       if(lbl) blocks[i].label=lbl.value.trim()||blocks[i].label;
       if(tim) blocks[i].timeLabel=tim.value.trim()||blocks[i].timeLabel;
     }
-    saveDB(); closeModal(); renderSchedule(); toast('课表设置已保存'); return;
+    saveDB(); closeCustomModal(); renderSchedule(); toast('课表设置已保存'); return;
   }
   // 课表：学期管理弹窗 - 保存学期
   if(e.target.id==='schSaveSem'){ saveSemester(); return; }
   // 课表：学期管理弹窗 - 切换学期
-  var swsem=e.target.closest('[data-switch-sem]'); if(swsem){ DB.courseSchedule.activeSemesterId=swsem.getAttribute('data-switch-sem'); saveDB(); closeModal(); renderSchedule(); return; }
+  var swsem=e.target.closest('[data-switch-sem]'); if(swsem){ DB.courseSchedule.activeSemesterId=swsem.getAttribute('data-switch-sem'); saveDB(); closeCustomModal(); renderSchedule(); return; }
   // 课表：学期管理弹窗 - 删除学期
   var dsem=e.target.closest('[data-del-sem]'); if(dsem){ deleteSemester(dsem.getAttribute('data-del-sem')); return; }
   // editor save
@@ -3045,27 +3045,35 @@ function reviewItemHtml(recId, r, isToday){
     '</div>';
 }
 
-/* ---- 自定义弹窗（带表单的模态框） ---- */
-var _customModalCleanup = null;
+/* ---- 自定义弹窗（课表表单用）----
+   不复用公共 #modalOverlay/.modal-card：避免把公共 prompt/confirm 的节点
+   (#modalTitle/#modalMsg/#modalInput/#modalCancel/#modalOk)及其事件绑定销毁——
+   否则一旦用过课表弹窗，公共弹窗(#modalCancel 被换掉/节点失效)就会崩，
+   导致"新建文件夹/确认框卡住、无法保存学期"。这里改为在 #app 内动态创建
+   独立的 .modal-overlay + .modal-card，既保证 #app 上的 click 委托能到达
+   内部按钮(schSaveSem 等)，又不污染公共弹窗；关闭即移除该元素。 */
+var _customModalRoot = null;
+function closeCustomModal(){
+  if(_customModalRoot){ _customModalRoot.remove(); _customModalRoot = null; }
+}
 function openCustomModal(title, html, opts){
   opts = opts || {};
   playSound('pop');
-  modalTitle.textContent = title;
-  // 清空原 card 内容，替换为自定义 HTML
-  var card = document.querySelector('.modal-card');
-  card.innerHTML = '<div class="mtitle">'+escapeHtml(title)+'</div>' + html +
-    (opts.confirmText ? '<div class="modal-actions"><button id="modalOk" class="primary">'+escapeHtml(opts.confirmText)+'</button></div>' : '');
-  // 隐藏旧 input
-  modalOverlay.classList.add('show');
-  // 清理旧绑定
-  if(_customModalCleanup){ try{_customModalCleanup();}catch(e){} _customModalCleanup = null; }
-  // 确认按钮：点击关闭
-  var okBtn = document.getElementById('modalOk');
-  if(okBtn){ okBtn.addEventListener('click', closeModal); }
-  _customModalCleanup = function(){
-    var card2 = document.querySelector('.modal-card');
-    if(card2) card2.innerHTML = '<div class="mtitle" id="modalTitle">标题</div><div class="mmsg" id="modalMsg" style="display:none"></div><input type="text" id="modalInput" placeholder=""><div class="modal-actions"><button id="modalCancel">取消</button><button class="primary" id="modalOk">确定</button></div>';
-  };
+  closeCustomModal();   // 若有未关的自定义弹窗，先移除
+  var root = document.createElement('div');
+  root.className = 'modal-overlay show';
+  root.style.cssText = 'z-index:70;';
+  root.innerHTML = '<div class="modal-card" style="max-width:360px;max-height:86vh;overflow-y:auto">' +
+    '<div class="mtitle">'+escapeHtml(title)+'</div>' + html +
+    (opts.confirmText ? '<div class="modal-actions"><button class="primary" data-custom-close>'+escapeHtml(opts.confirmText)+'</button></div>' : '') +
+    '</div>';
+  var anchor = document.getElementById('modalOverlay');
+  (anchor ? anchor.parentNode : document.body).insertBefore(root, anchor ? anchor.nextSibling : null);
+  root.addEventListener('click', function(e){
+    if(e.target === root || e.target.closest('[data-custom-close]')) closeCustomModal();
+  });
+  _customModalRoot = root;
+  return root;
 }
 
 /* ============ SCHEDULE (课表) ============ */
@@ -3245,7 +3253,7 @@ function saveSemester(){
     schedule.activeSemesterId = id;
   }
   saveDB();
-  closeModal();
+  closeCustomModal();
   renderSchedule();
   toast('学期已保存');
   playSound('success');
@@ -3254,6 +3262,7 @@ function saveSemester(){
 function deleteSemester(id){
   var schedule = DB.courseSchedule;
   if(!schedule.semesters[id]) return;
+  closeCustomModal();  // 先收起学期管理弹窗，让系统确认框可见
   openConfirmModal('删除学期', '确定删除该学期？所有课节数据将丢失。', function(ok){
     if(!ok) return;
     delete schedule.semesters[id];
@@ -3262,7 +3271,6 @@ function deleteSemester(id){
       schedule.activeSemesterId = ids.length ? ids[0] : '';
     }
     saveDB();
-    closeModal();
     renderSchedule();
     toast('学期已删除');
   });
@@ -3318,14 +3326,14 @@ function openCourseModal(sessionId){
     (sessionId?'<button class="btn btn-secondary" style="color:var(--danger)" id="schDelCourse">删除课程</button>':'') +
     '<button class="btn btn-primary" id="schSaveCourse">保存课程</button>' +
     '</div>';
-  openCustomModal(session?'编辑课程':'添加课程', html, {confirmText:'关闭'});
+  var root = openCustomModal(session?'编辑课程':'添加课程', html, {confirmText:'关闭'});
   var chosenColor = session ? session.color : COURSE_COLORS[0];
   var chosenWd = session ? session.weekday : -1;
   var chosenBlock = -1;
   var chosenOe = session ? session.isOddEven : 'all';
 
-  // 绑定颜色选择
-  document.querySelector('.modal-card').addEventListener('click', function(e){
+  // 绑定颜色选择（绑在自定义弹窗容器上）
+  root.addEventListener('click', function(e){
     var co = e.target.closest('.sch-color-opt');
     if(co){ chosenColor = co.getAttribute('data-color'); document.querySelectorAll('.sch-color-opt').forEach(function(el){ el.classList.toggle('active', el===co); }); }
     var wdo = e.target.closest('[data-wd]');
@@ -3389,7 +3397,7 @@ function saveCourse(color, weekday, blockIdx, isOddEven){
     semester.sessions.push(sessionData);
   }
   saveDB();
-  closeModal();
+  closeCustomModal();
   renderSchedule();
   toast('课程已保存');
   playSound('success');
@@ -3398,11 +3406,11 @@ function saveCourse(color, weekday, blockIdx, isOddEven){
 function deleteCourse(sessionId){
   var semester = getActiveSemester(DB.courseSchedule);
   if(!semester) return;
+  closeCustomModal();  // 先收起课程弹窗，让系统确认框可见
   openConfirmModal('删除课程', '确定删除该课程？', function(ok){
     if(!ok) return;
     semester.sessions = semester.sessions.filter(function(s){return s.id !== sessionId;});
     saveDB();
-    closeModal();
     renderSchedule();
     toast('课程已删除');
   });
