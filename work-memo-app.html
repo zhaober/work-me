@@ -537,7 +537,72 @@
       window.__wmShowCrash();
     }, 10000);
   });
+
+  /* 崩溃面板按钮绑定必须放在【经典脚本】里，且不依赖 module：
+     因为 module 一旦崩/超时，其内部的 bindCrashPanel 根本不会执行，
+     按钮就会"点了没反应"。这里用自包含的实现兜底——即使拿不到
+     buildCrashReport，也能把原始崩溃日志拼成可复制文本。 */
+  var kindName = { error:'脚本错误', promise:'未处理的 Promise 异常', resource:'资源加载失败', plugin:'插件异常' };
+  function localReport(){
+    var s = window.__WM_STAGE__ || 'unknown';
+    var rec = null;
+    try{ rec = JSON.parse(localStorage.getItem(KEY) || 'null'); }catch(e){ rec = null; }
+    var title, lines = [];
+    if(!rec || typeof rec !== 'object' || Array.isArray(rec)){
+      title = '启动未完成';
+      lines.push('阶段：' + s);
+      lines.push('未捕获到具体错误（可能是数据载入卡住，或进程被系统回收）。');
+    } else {
+      title = kindName[rec.kind] || (typeof rec.kind === 'string' && rec.kind) || '未知异常';
+      lines.push('类型：' + title);
+      lines.push('阶段：' + s);
+      if(rec.at) lines.push('时间：' + String(rec.at));
+      if(rec.message) lines.push('信息：' + String(rec.message));
+      if(rec.stack) lines.push('堆栈：' + String(rec.stack));
+      if(rec.ua) lines.push('环境：' + String(rec.ua));
+    }
+    return { title: title, detail: lines.join('\n'), rec: rec };
+  }
+  window.__wmLocalReport = localReport;
+  function showCopiedTip(){
+    var f = document.getElementById('crashCopiedTip');
+    if(f){ f.style.display = 'block'; setTimeout(function(){ if(f) f.style.display='none'; }, 2500); }
+  }
+  function copyText(t){
+    // 优先 Clipboard API；不可用则用隐藏 textarea + execCommand 降级
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){ showCopiedTip(); }, function(){ fallbackCopy(t); });
+    } else { fallbackCopy(t); }
+  }
+  function fallbackCopy(t){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = t;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok) showCopiedTip();
+    }catch(e){}
+  }
+  window.addEventListener('DOMContentLoaded', function(){
+    var panel = document.getElementById('crashPanel');
+    if(!panel) return;
+    panel.addEventListener('click', function(e){
+      if(e.target.closest('[data-crash-copy]')){
+        var r = window.__wmLocalReport ? window.__wmLocalReport() : { title:'启动异常', detail:'无法读取错误详情', rec:null };
+        copyText(r.title + '\n' + r.detail);
+        return;
+      }
+      if(e.target.closest('[data-crash-clear]')){
+        try{ localStorage.removeItem(KEY); }catch(err){}
+        location.reload();
+      }
+    });
+  });
 })();
+
 </script>
 </head>
 <body>
@@ -825,6 +890,7 @@
     <button data-crash-copy style="flex:1;padding:12px;border:none;border-radius:12px;background:#4F6EF7;color:#fff;font-size:14px;font-weight:600;">复制错误信息</button>
     <button data-crash-clear style="flex:1;padding:12px;border:none;border-radius:12px;background:#2A2E37;color:#EDEFF4;font-size:14px;font-weight:600;">清除并重试</button>
   </div>
+  <div id="crashCopiedTip" style="display:none;text-align:center;margin-top:10px;color:#7CF29A;font-size:13px;font-weight:600;">已复制，请粘贴给开发者</div>
 </div>
 
 <!-- SheetJS: Excel 解析库。不用 <script> 标签同步加载（881KB 会阻塞启动，
@@ -850,25 +916,7 @@ function markBootOk(){
   window.__WM_BOOT_OK__ = true;
   if(window.__wmHideCrash) window.__wmHideCrash();
 }
-(function bindCrashPanel(){
-  var panel = document.getElementById('crashPanel');
-  if(!panel) return;
-  panel.addEventListener('click', function(e){
-    if(e.target.closest('[data-crash-copy]')){
-      var rec = window.__wmReadCrash ? window.__wmReadCrash() : null;
-      var rep = buildCrashReport(rec, window.__WM_STAGE__);
-      var text = rep.title + '\n' + rep.detail;
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).then(function(){ toast('错误信息已复制'); }, function(){ /* 复制失败不打扰 */ });
-      }
-      return;
-    }
-    if(e.target.closest('[data-crash-clear]')){
-      if(window.__wmClearCrash) window.__wmClearCrash();
-      location.reload();
-    }
-  });
-})();
+/* 崩溃面板按钮(复制/清除)绑定已移到经典脚本 localReport/copyText 。不依赖 module，module 崩/超时时按钮仍可用。 */
 
 /* ============ DATA MODEL (local, single source of truth) ============ */
 var TODAY = getTodayStr();
