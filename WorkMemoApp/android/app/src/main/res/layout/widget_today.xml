@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 今日课程小组件（2x2） -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/wt_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/wt_date"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="今日课程"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:textColor="#E64A19" />
+
+    <TextView
+        android:id="@+id/wt_c1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/wt_c2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/wt_c3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#333333"
+        android:maxLines="2"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/wt_footer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="今日共 0 门"
+        android:textSize="10sp"
+        android:textColor="#999999" />
+</LinearLayout>

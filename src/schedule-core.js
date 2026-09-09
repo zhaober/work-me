@@ -184,7 +184,6 @@ export function getWeekInfo(startDate, today) {
   return { weekNum: weekNum, isOddWeek: weekNum % 2 === 1 };
 }
 
-/** 获取指定星期几和周的课节列表（仅返回该周生效的课节） */
 /** WakeUp 风格表头：本周(或偏移周)周一~周五的"几号"数字。
  * todayIso: YYYY-MM-DD；todayDow: 0=周一；weekDelta: 相对本周偏移量 */
 export function weekdayDateNums(todayIso, todayDow, weekDelta) {
@@ -200,6 +199,7 @@ export function weekdayDateNums(todayIso, todayDow, weekDelta) {
   return out;
 }
 
+/** 获取指定星期几和周的课节列表（仅返回该周生效的课节） */
 export function getSessionsForDay(semester, weekday, weekNum, isOddWeek) {
   if (!semester || !Array.isArray(semester.sessions)) return [];
   return semester.sessions.filter(function(s) {
@@ -211,6 +211,52 @@ export function getSessionsForDay(semester, weekday, weekNum, isOddWeek) {
 export function getActiveSemester(schedule) {
   if (!schedule || !schedule.activeSemesterId) return null;
   return schedule.semesters[schedule.activeSemesterId] || null;
+}
+
+/** 桌面小组件数据：今日课程 + 近日(今天起3天)课程。
+ * 返回可 JSON 序列化的 payload，供原生 AppWidget 渲染。 */
+export function buildWidgetPayload(schedule, todayIso, maxPerDay) {
+  maxPerDay = maxPerDay || 3;
+  var semester = getActiveSemester(schedule);
+  if (!semester) {
+    return { date: todayIso, hasSemester: false, weekNum: 0, dowName: '', semesterName: '',
+      today: { courses: [], total: 0 }, recent: [] };
+  }
+  var blocks = schedule.periodBlocks || DEFAULT_PERIOD_BLOCKS;
+  var wi = getWeekInfo(semester.startDate || '', todayIso);
+  var d = new Date(todayIso + 'T00:00:00');
+  var todayDow = (d.getDay() + 6) % 7; // 0=周一
+  function timeAt(period, which) {
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (period >= b.periodStart && period <= b.periodEnd) {
+        var parts = String(b.timeLabel || '').split(/[-\u2013]/);
+        return (which === 'end' ? parts[1] : parts[0]) || '';
+      }
+    }
+    return '';
+  }
+  function dayList(dow) {
+    var sessions = getSessionsForDay(semester, dow, wi.weekNum, wi.isOddWeek) || [];
+    sessions = sessions.slice().sort(function(a, b) { return a.periodStart - b.periodStart; });
+    return sessions.map(function(s) {
+      return { name: s.courseName, room: s.classroom || '', start: timeAt(s.periodStart, 'start'), end: timeAt(s.periodEnd, 'end') };
+    });
+  }
+  var todayCourses = dayList(todayDow);
+  var recent = [];
+  for (var off = 0; off < 3; off++) {
+    var nd = new Date(d); nd.setDate(d.getDate() + off);
+    var iso = nd.getFullYear() + '-' + String(nd.getMonth() + 1).padStart(2, '0') + '-' + String(nd.getDate()).padStart(2, '0');
+    var cs = dayList((todayDow + off) % 7);
+    recent.push({ date: iso, dow: (todayDow + off) % 7, courses: cs.slice(0, maxPerDay), total: cs.length });
+  }
+  return {
+    date: todayIso, hasSemester: true, weekNum: wi.weekNum,
+    dowName: WEEKDAY_NAMES[todayDow], semesterName: semester.name || '',
+    today: { courses: todayCourses.slice(0, maxPerDay), total: todayCourses.length },
+    recent: recent
+  };
 }
 
 /** 生成新课节 ID */

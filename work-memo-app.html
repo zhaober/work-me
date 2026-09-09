@@ -908,7 +908,7 @@
 <script type="module">
 "use strict";
 import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, repairRecordId, MAX_IMAGES_PER_RECORD, normalizeImageIds, recordImageIds, isImageIdUsed, collectUsedImageIds, buildImageGridHtml, nextImageIndex, formatImageCounter, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
-import { getDefaultSchedule, normalizeSchedule, getCurrentWeek, isSessionActiveInWeek, parseTimeField, parseWeekField, parseTeacherField, sessionBlockIndices, colorForCourse, getWeekInfo, getSessionsForDay, getActiveSemester, newSessionId, newSemesterId, DEFAULT_PERIOD_BLOCKS, WEEKDAY_NAMES, COURSE_COLORS, weekdayDateNums } from './src/schedule-core.js';
+import { getDefaultSchedule, normalizeSchedule, getCurrentWeek, isSessionActiveInWeek, parseTimeField, parseWeekField, parseTeacherField, sessionBlockIndices, colorForCourse, getWeekInfo, getSessionsForDay, getActiveSemester, newSessionId, newSemesterId, DEFAULT_PERIOD_BLOCKS, WEEKDAY_NAMES, COURSE_COLORS, weekdayDateNums, buildWidgetPayload } from './src/schedule-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -1190,7 +1190,20 @@ function flushPersist(){
  * 写盘入口。保持同步签名，所有既有调用点无需改动。
  * 每次调用重置定时器：连续输入只在停顿 3 秒后写一次。
  */
+/** 把课表小组件数据同步到原生(SharedPreferences + 立即刷新)。
+ * 桌面浏览器 / 无原生插件时静默跳过，不影响主功能。 */
+function syncScheduleWidget(){
+  try{
+    var cap = window.Capacitor;
+    var bridge = cap && cap.Plugins && cap.Plugins.WidgetBridge;
+    if(!bridge || typeof bridge.saveToday !== 'function') return;
+    var payload = buildWidgetPayload(DB.courseSchedule, TODAY, 3);
+    bridge.saveToday({ payload: JSON.stringify(payload) });
+  }catch(e){ /* 原生桥异常不影响 App 主功能 */ }
+}
+
 function saveDB(){
+  syncScheduleWidget();
   persistPending = true;
   if(persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(function(){
@@ -3603,6 +3616,7 @@ raceTimeout(bootstrapStore(), BOOT_STORE_TIMEOUT, BOOT_TIMEOUT_SENTINEL).then(fu
   }
   loadSettings();
   renderHome(); renderCalendar(); renderStats(); renderSchedule();
+  syncScheduleWidget();
   maybeAutoShowQuote();
   /* 启动时为所有已保存记录登记多级提醒（应用重启后 setTimeout 会清空，须重建） */
   armAllReminders();

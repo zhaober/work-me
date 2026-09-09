@@ -4,4 +4,6 @@
     <string name="title_activity_main">工作备忘录</string>
     <string name="package_name">com.workmemo.app</string>
     <string name="custom_url_scheme">com.workmemo.app</string>
+    <string name="widget_today_desc">显示今天的课程安排</string>
+    <string name="widget_recent_desc">显示今天起三天的课程安排</string>
 </resources>
