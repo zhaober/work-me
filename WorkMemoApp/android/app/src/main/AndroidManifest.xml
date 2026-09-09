@@ -26,6 +26,7 @@
 
         <receiver
             android:name=".TodayWidgetProvider"
+            android:label="@string/widget_today_label"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -37,6 +38,7 @@
 
         <receiver
             android:name=".RecentWidgetProvider"
+            android:label="@string/widget_recent_label"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
