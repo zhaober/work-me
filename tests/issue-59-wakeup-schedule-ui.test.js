@@ -9,23 +9,23 @@ import { weekdayDateNums } from '../src/schedule-core.js';
 
 const HTML = readFileSync(new URL('../work-memo-app.html', import.meta.url), 'utf8');
 
-test('weekdayDateNums: 返回本周(周一~周五)日期数字', () => {
+test('weekdayDateNums: 返回本周(周一~周日)日期数字', () => {
   // 2026-09-09 是周三 (dow0=2)，本周一 = 9/7
-  assert.deepEqual(weekdayDateNums('2026-09-09', 2, 0), [7, 8, 9, 10, 11]);
+  assert.deepEqual(weekdayDateNums('2026-09-09', 2, 0), [7, 8, 9, 10, 11, 12, 13]);
 });
 
 test('weekdayDateNums: weekDelta=1 得到下一周日期', () => {
-  assert.deepEqual(weekdayDateNums('2026-09-09', 2, 1), [14, 15, 16, 17, 18]);
+  assert.deepEqual(weekdayDateNums('2026-09-09', 2, 1), [14, 15, 16, 17, 18, 19, 20]);
 });
 
 test('weekdayDateNums: 周一(dow0=0) 与跨月正确', () => {
   // 2026-08-31 是周一，本周 [31, 1, 2, 3, 4]（跨月）
-  assert.deepEqual(weekdayDateNums('2026-08-31', 0, 0), [31, 1, 2, 3, 4]);
+  assert.deepEqual(weekdayDateNums('2026-08-31', 0, 0), [31, 1, 2, 3, 4, 5, 6]);
 });
 
 test('weekdayDateNums: weekDelta=-1 回到上周', () => {
   // 本周一 9/7 → 上周 [31,1,2,3,4]
-  assert.deepEqual(weekdayDateNums('2026-09-09', 2, -1), [31, 1, 2, 3, 4]);
+  assert.deepEqual(weekdayDateNums('2026-09-09', 2, -1), [31, 1, 2, 3, 4, 5, 6]);
 });
 
 test('renderSchedule 生成 WakeUp 式顶部信息栏（第N周 周X + 日期）', () => {

@@ -421,19 +421,19 @@
   .schedule-week-nav{display:flex;align-items:center;gap:4px;}
   .schedule-week-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:var(--card);border-radius:8px;color:var(--text-2);cursor:pointer;}
   .schedule-week-label{font-size:13px;font-weight:600;color:var(--text);min-width:44px;text-align:center;}
-  .schedule-grid{display:grid;grid-template-columns:56px repeat(5,1fr);gap:2px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;min-height:0;flex:1;}
-  .schedule-grid .sg-header{background:var(--card);padding:6px 2px;font-size:11px;font-weight:600;color:var(--text-2);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;margin:2px;border-radius:8px;position:relative;}
-  .schedule-grid .sg-header .sg-wd{font-size:11px;line-height:1.2;}
-  .schedule-grid .sg-header .sg-date{font-size:9px;font-weight:500;color:var(--text-3);line-height:1.2;}
+  .schedule-grid{display:grid;grid-template-columns:40px repeat(7,1fr);gap:2px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;min-height:0;flex:1;}
+  .schedule-grid .sg-header{background:var(--card);padding:5px 1px;font-size:10px;font-weight:600;color:var(--text-2);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;margin:2px;border-radius:8px;position:relative;}
+  .schedule-grid .sg-header .sg-wd{font-size:10px;line-height:1.2;}
+  .schedule-grid .sg-header .sg-date{font-size:8px;font-weight:500;color:var(--text-3);line-height:1.2;}
   .schedule-grid .sg-header.today-h{background:var(--text);color:var(--card);}
   .schedule-grid .sg-header.today-h .sg-date{color:var(--card);opacity:.75;}
-  .schedule-grid .sg-time{background:var(--card);padding:8px 2px;font-size:10px;color:var(--text-3);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.35;border-right:1px solid var(--border);}
-  .schedule-grid .sg-time .sg-pnum{font-size:13px;font-weight:600;color:var(--text-2);line-height:1.2;}
-  .schedule-grid .sg-time .sg-pt{font-size:8px;line-height:1.3;white-space:nowrap;}
-  .schedule-grid .sg-cell{background:var(--bg);min-height:56px;padding:3px;position:relative;display:flex;flex-direction:column;gap:2px;overflow:hidden;}
+  .schedule-grid .sg-time{background:var(--card);padding:8px 1px;font-size:9px;color:var(--text-3);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1.35;border-right:1px solid var(--border);}
+  .schedule-grid .sg-time .sg-pnum{font-size:12px;font-weight:600;color:var(--text-2);line-height:1.2;}
+  .schedule-grid .sg-time .sg-pt{font-size:7px;line-height:1.3;white-space:nowrap;}
+  .schedule-grid .sg-cell{background:var(--bg);min-height:88px;padding:3px;position:relative;display:flex;flex-direction:column;gap:2px;overflow:hidden;}
   .schedule-grid .sg-cell.today-c{background:color-mix(in srgb, var(--accent) 6%, var(--bg));}
   .schedule-grid .sg-cell.empty-c{background:var(--card);}
-  .sg-block{border-radius:8px;padding:5px 6px;font-size:10px;line-height:1.3;cursor:pointer;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .sg-block{border-radius:8px;padding:5px 4px;font-size:9px;line-height:1.3;cursor:pointer;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.08);}
   .sg-block .sg-title{font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sg-block .sg-room{font-size:9px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .sg-block .sg-wk{font-size:9px;color:rgba(255,255,255,.6);}
@@ -3142,7 +3142,7 @@ function renderSchedule(){
   if(viewWeek > (semester.totalWeeks || 17)) viewWeek = semester.totalWeeks || 17;
 
   var todayDow = (new Date().getDay() + 6) % 7; // 0=周一
-  var weekdays = [0,1,2,3,4]; // 周一到周五（默认不显示周六周日）
+  var weekdays = [0,1,2,3,4,5,6]; // 周一到周日（WakeUp 式 7 列）
 
   // WakeUp 式表头：周几 + 具体日期
   var dateNums = weekdayDateNums(TODAY, todayDow, schViewWeek);

@@ -184,14 +184,14 @@ export function getWeekInfo(startDate, today) {
   return { weekNum: weekNum, isOddWeek: weekNum % 2 === 1 };
 }
 
-/** WakeUp 风格表头：本周(或偏移周)周一~周五的"几号"数字。
+/** WakeUp 风格表头：本周(或偏移周)周一~周日的"几号"数字。
  * todayIso: YYYY-MM-DD；todayDow: 0=周一；weekDelta: 相对本周偏移量 */
 export function weekdayDateNums(todayIso, todayDow, weekDelta) {
   var base = new Date(todayIso + 'T00:00:00');
   var monday = new Date(base);
   monday.setDate(base.getDate() - todayDow + weekDelta * 7);
   var out = [];
-  for (var i = 0; i < 5; i++) {
+  for (var i = 0; i < 7; i++) {
     var d = new Date(monday);
     d.setDate(monday.getDate() + i);
     out.push(d.getDate());
