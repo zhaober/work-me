@@ -1196,10 +1196,17 @@ function syncScheduleWidget(){
   try{
     var cap = window.Capacitor;
     var bridge = cap && cap.Plugins && cap.Plugins.WidgetBridge;
-    if(!bridge || typeof bridge.saveToday !== 'function') return;
+    if(!bridge || typeof bridge.saveToday !== 'function'){
+      console.warn('[widget] WidgetBridge 插件不可用（未注册或非原生环境）');
+      return;
+    }
     var payload = buildWidgetPayload(DB.courseSchedule, TODAY, 3);
-    bridge.saveToday({ payload: JSON.stringify(payload) });
-  }catch(e){ /* 原生桥异常不影响 App 主功能 */ }
+    Promise.resolve(bridge.saveToday({ payload: JSON.stringify(payload) })).then(function(){
+      window.__widgetSyncAt = Date.now();
+    }).catch(function(err){
+      console.warn('[widget] saveToday 失败:', err);
+    });
+  }catch(e){ console.warn('[widget] 同步异常:', e); /* 原生桥异常不影响 App 主功能 */ }
 }
 
 function saveDB(){
@@ -2651,7 +2658,7 @@ function initAppStateListener(){
     var Cap = (typeof window !== 'undefined' && window.Capacitor) ? window.Capacitor : null;
     if(Cap && Cap.Plugins && Cap.Plugins.App && typeof Cap.Plugins.App.addListener === 'function'){
       Cap.Plugins.App.addListener('appStateChange', function(state){
-        if(state && state.isActive){
+        if(state && state.isActive){ syncScheduleWidget();
           try { rescheduleAllNotifications(); } catch(e){ /* 通知失败不影响主功能 */ }
         } else {
           /* 切后台/退出（isActive=false）：立即落盘。
