@@ -185,6 +185,21 @@ export function getWeekInfo(startDate, today) {
 }
 
 /** 获取指定星期几和周的课节列表（仅返回该周生效的课节） */
+/** WakeUp 风格表头：本周(或偏移周)周一~周五的"几号"数字。
+ * todayIso: YYYY-MM-DD；todayDow: 0=周一；weekDelta: 相对本周偏移量 */
+export function weekdayDateNums(todayIso, todayDow, weekDelta) {
+  var base = new Date(todayIso + 'T00:00:00');
+  var monday = new Date(base);
+  monday.setDate(base.getDate() - todayDow + weekDelta * 7);
+  var out = [];
+  for (var i = 0; i < 5; i++) {
+    var d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    out.push(d.getDate());
+  }
+  return out;
+}
+
 export function getSessionsForDay(semester, weekday, weekNum, isOddWeek) {
   if (!semester || !Array.isArray(semester.sessions)) return [];
   return semester.sessions.filter(function(s) {
