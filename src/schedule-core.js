@@ -268,3 +268,19 @@ export function newSessionId() {
 export function newSemesterId() {
   return 'sem' + Date.now() + Math.floor(Math.random() * 1000);
 }
+
+/** Excel 导入：从表头行中挑选"上课地点"列。
+ * 教务导出的表常有「教室类别」（多媒体/机房等类型列），不能当成地点。
+ * 优先级：上课地点 > 地点 > 教室（排除"教室类别/教室类型"）。 */
+export function pickRoomColumn(headers) {
+  var exact = -1, diDian = -1, jiaoShi = -1;
+  headers.forEach(function(h, i) {
+    var s = String(h || '');
+    if (/上课地点/.test(s)) { if (exact < 0) exact = i; }
+    else if (/地点/.test(s)) { if (diDian < 0) diDian = i; }
+    else if (/教室/.test(s) && !/类别|类型/.test(s)) { if (jiaoShi < 0) jiaoShi = i; }
+  });
+  if (exact >= 0) return exact;
+  if (diDian >= 0) return diDian;
+  return jiaoShi;
+}

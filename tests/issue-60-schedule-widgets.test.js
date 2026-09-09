@@ -68,7 +68,7 @@ test('JS 桥接：syncScheduleWidget 定义并在 saveDB 与 boot 挂载', () =>
   assert.match(HTML, /bridge\.saveToday\(\{ payload: JSON\.stringify\(payload\) \}\)/);
   assert.match(HTML, /function saveDB\(\)\{\s*\n\s*syncScheduleWidget\(\);/);
   assert.match(HTML, /renderSchedule\(\);\s*\n\s*syncScheduleWidget\(\);\s*\n\s*maybeAutoShowQuote\(\);/);
-  assert.match(HTML, /buildWidgetPayload } from '\.\/src\/schedule-core\.js';/);
+  assert.match(HTML, /buildWidgetPayload[\s\S]*?} from '\.\/src\/schedule-core\.js';/);
 });
 
 test('原生：Java Provider / 插件 / MainActivity 注册齐全', () => {
