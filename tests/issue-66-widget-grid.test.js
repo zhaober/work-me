@@ -251,6 +251,10 @@ test('JS：保存时一并同步网格 payload', () => {
   assert.match(HTML, /gridPayload: JSON\.stringify\(gridPayload\)/);
 });
 
+/** 设计画布打开 HTML 时会往里注入 data-page-node-id 属性（纯编辑器标记）。
+ *  它会让"三处镜像必须逐字节一致"这条不变量误报，比较前统一剥掉。 */
+const stripEditorAttrs = (s) => s.replace(/ data-page-node-id="[^"]*"/g, '');
+
 test('镜像：三处 schedule-core.js / HTML 完全一致（含 www 与 APK assets）', () => {
   const src = readFileSync(new URL('../src/schedule-core.js', import.meta.url), 'utf8');
   const www = readFileSync(new URL('../WorkMemoApp/www/src/schedule-core.js', import.meta.url), 'utf8');
@@ -259,5 +263,7 @@ test('镜像：三处 schedule-core.js / HTML 完全一致（含 www 与 APK ass
   assert.equal(src, assets);
   const h1 = readFileSync(new URL('../work-memo-app.html', import.meta.url), 'utf8');
   const h2 = readFileSync(new URL('../WorkMemoApp/www/index.html', import.meta.url), 'utf8');
-  assert.equal(h1, h2);
+  assert.equal(stripEditorAttrs(h1), stripEditorAttrs(h2));
+  // 另外确认注入没有被同步进镜像（www 必须是干净的）
+  assert.equal(/data-page-node-id/.test(h2), false, 'www 镜像里不应有画布注入');
 });

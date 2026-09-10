@@ -14,7 +14,12 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <View
+        <!-- 黄色强调条：必须用 TextView 而不是 <View>。
+             RemoteViews inflate 时按 @RemoteView 注解过滤类
+             （RemoteViews.onLoadClass → clazz.isAnnotationPresent(RemoteView.class)），
+             android.view.View 没有这个注解，用 <View> 会让整个布局
+             inflate 失败 → 桌面显示"载入窗口小部件时出现问题"。 -->
+        <TextView
             android:layout_width="3dp"
             android:layout_height="13dp"
             android:layout_marginEnd="6dp"

@@ -14,7 +14,9 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <View
+        <!-- 强调条必须是 TextView：RemoteViews 只放行带 @RemoteView 注解的类，
+             用 <View> 会导致整个布局 inflate 失败（桌面报"载入窗口小部件时出现问题"） -->
+        <TextView
             android:layout_width="3dp"
             android:layout_height="13dp"
             android:layout_marginEnd="6dp"

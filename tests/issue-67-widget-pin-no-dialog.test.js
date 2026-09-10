@@ -133,7 +133,9 @@ test('回归：原有降级路径仍然保留', () => {
   assert.match(HTML, /bridge\.requestPin\(\{ widget: which \}\)/);
 });
 
-test('镜像：HTML 与 www 一致', () => {
+test('镜像：HTML 与 www 一致（忽略设计画布注入的编辑器属性）', () => {
+  const strip = (s) => s.replace(/ data-page-node-id="[^"]*"/g, '');
   const www = readFileSync(new URL('../WorkMemoApp/www/index.html', import.meta.url), 'utf8');
-  assert.equal(HTML, www);
+  assert.equal(strip(HTML), strip(www));
+  assert.equal(/data-page-node-id/.test(www), false, 'www 镜像里不应有画布注入');
 });
