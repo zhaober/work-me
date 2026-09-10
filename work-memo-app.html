@@ -418,6 +418,35 @@
   .schedule-hero{flex:1;min-width:0;}
   .schedule-hero .sh-week{font-size:20px;font-weight:700;color:var(--text);line-height:1.25;}
   .schedule-hero .sh-date{font-size:11px;color:var(--text-3);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .schedule-widget-btn{display:flex;align-items:center;gap:3px;height:32px;padding:0 10px;border:none;background:var(--card);border-radius:8px;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .schedule-widget-btn svg{flex-shrink:0;}
+  .widget-panel{display:flex;flex-direction:column;gap:14px;}
+  .widget-block{display:flex;flex-direction:column;gap:8px;}
+  .widget-preview{background:linear-gradient(135deg,#5a5a5a,#4a4a4a);border-radius:14px;padding:10px;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  .wp-card{color:#fff;}
+  .wp-head{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+  .wp-bar{width:3px;height:13px;border-radius:2px;background:#F5C518;display:inline-block;}
+  .wp-date{font-size:11px;font-weight:700;letter-spacing:.3px;}
+  .wp-week{margin-left:auto;font-size:10px;opacity:.85;}
+  .wp-course{border-radius:7px;padding:4px 6px;margin-bottom:4px;color:#fff;}
+  .wp-course:last-child{margin-bottom:0;}
+  .wp-course .wpc-name{font-size:10px;font-weight:600;line-height:1.25;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wp-course .wpc-sub{font-size:8px;opacity:.9;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wp-foot{font-size:9px;opacity:.75;margin-top:7px;text-align:right;}
+  .wp-empty{font-size:10px;opacity:.75;padding:6px 0;}
+  .wpr-wrap{display:flex;gap:5px;}
+  .wpr-col{flex:1;min-width:0;}
+  .wpr-date{font-size:9px;font-weight:700;margin-bottom:4px;opacity:.9;}
+  .wpr-course{border-radius:6px;padding:3px 4px;margin-bottom:3px;color:#fff;}
+  .wpr-course .wpr-name{font-size:9px;font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wpr-course .wpr-sub{font-size:8px;opacity:.9;}
+  .wpr-empty{font-size:9px;opacity:.6;}
+  .widget-row{display:flex;align-items:center;gap:10px;}
+  .widget-meta{flex:1;min-width:0;}
+  .widget-meta .wm-name{font-size:13px;font-weight:600;color:var(--text);}
+  .widget-meta .wm-desc{font-size:11px;color:var(--text-3);}
+  .widget-add{white-space:nowrap;flex-shrink:0;}
+  .widget-hint{font-size:11px;color:var(--text-3);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;}
   .schedule-week-nav{display:flex;align-items:center;gap:4px;}
   .schedule-week-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:var(--card);border-radius:8px;color:var(--text-2);cursor:pointer;}
   .schedule-week-label{font-size:13px;font-weight:600;color:var(--text);min-width:44px;text-align:center;}
@@ -2066,6 +2095,8 @@ document.getElementById('app').addEventListener('click', function(e){
   // today plan: bottom bar - move pending to next day
   if(e.target.id==='tpMoveBtn'){ openConfirmModal('移到下一天', '将把今天未完成的待办移到明天。确定吗？', function(ok){ if(ok) movePendingToNextDay(); }); return; }
   // 课表：周导航 - 上一周
+  var wEntry=e.target.closest('#schWidgetEntry'); if(wEntry){ playSound('tap'); openWidgetPanel(); return; }
+  var pinBtn=e.target.closest('[data-widget-pin]'); if(pinBtn){ playSound('tap'); requestPinWidget(pinBtn.getAttribute('data-widget-pin')); return; }
   if(e.target.id==='schPrevWeek'){ schViewWeek--; renderSchedule(); playSound('tap'); return; }
   // 课表：周导航 - 下一周
   if(e.target.id==='schNextWeek'){ schViewWeek++; renderSchedule(); playSound('tap'); return; }
@@ -3115,6 +3146,103 @@ function openCustomModal(title, html, opts){
   return root;
 }
 
+/* ============ 小组件面板（添加到桌面） ============ */
+/** 今日课程小组件预览：与桌面 widget 同风格（深色卡 + 彩色课程块） */
+function widgetTodayPreviewHtml(){
+  var p = buildWidgetPayload(DB.courseSchedule, TODAY, 3);
+  var courses = (p.today && p.today.courses) || [];
+  var body = '';
+  if(!p.hasSemester){
+    body = '<div class="wp-empty">先在课表页创建学期并导入课表</div>';
+  } else if(!courses.length){
+    body = '<div class="wp-empty">今天没有课</div>';
+  } else {
+    courses.forEach(function(c){
+      body += '<div class="wp-course" style="background:'+colorForCourse(c.name)+'">' +
+        '<div class="wpc-name">'+escapeHtml(c.name)+'</div>' +
+        '<div class="wpc-sub">'+escapeHtml(c.room||'')+(c.room?' · ':'')+escapeHtml(c.start||'')+'</div>' +
+        '</div>';
+    });
+  }
+  return '<div class="wp-card">' +
+    '<div class="wp-head"><span class="wp-bar"></span>' +
+    '<span class="wp-date">'+TODAY.replace(/-/g,'.')+' '+escapeHtml(p.dowName||'')+'</span>' +
+    (p.hasSemester ? '<span class="wp-week">第'+p.weekNum+'周</span>' : '') +
+    '</div>' + body +
+    (p.hasSemester ? '<div class="wp-foot">今日共 '+p.today.total+' 门</div>' : '') +
+    '</div>';
+}
+
+/** 近日课程小组件预览：三列（今天/明天/后天） */
+function widgetRecentPreviewHtml(){
+  var p = buildWidgetPayload(DB.courseSchedule, TODAY, 3);
+  var days = p.recent || [];
+  var cols = '';
+  if(!p.hasSemester){
+    cols = '<div class="wp-empty">先在课表页创建学期并导入课表</div>';
+  } else if(!days.length){
+    cols = '<div class="wp-empty">暂无课程</div>';
+  } else {
+    days.forEach(function(d){
+      var items = '';
+      if(!d.courses.length){
+        items = '<div class="wpr-empty">无课</div>';
+      } else {
+        d.courses.forEach(function(c){
+          items += '<div class="wpr-course" style="background:'+colorForCourse(c.name)+'">' +
+            '<div class="wpr-name">'+escapeHtml(c.name)+'</div>' +
+            '<div class="wpr-sub">'+escapeHtml(c.start||'')+'</div></div>';
+        });
+      }
+      cols += '<div class="wpr-col"><div class="wpr-date">'+d.date.slice(5).replace('-','.')+'</div>' + items + '</div>';
+    });
+  }
+  return '<div class="wp-card"><div class="wp-head"><span class="wp-bar"></span>' +
+    '<span class="wp-date">'+(p.hasSemester ? '第'+p.weekNum+'周 · ' : '')+'近日课程</span></div>' +
+    '<div class="wpr-wrap">'+cols+'</div></div>';
+}
+
+/** 打开小组件面板 */
+function openWidgetPanel(){
+  var html = '<div class="widget-panel">' +
+    '<div class="widget-block">' +
+      '<div class="widget-preview">'+widgetTodayPreviewHtml()+'</div>' +
+      '<div class="widget-row"><div class="widget-meta"><div class="wm-name">今日课程</div>' +
+      '<div class="wm-desc">今天的课程、时间与教室</div></div>' +
+      '<button class="btn btn-primary widget-add" data-widget-pin="today">添加到桌面</button></div>' +
+    '</div>' +
+    '<div class="widget-block">' +
+      '<div class="widget-preview">'+widgetRecentPreviewHtml()+'</div>' +
+      '<div class="widget-row"><div class="widget-meta"><div class="wm-name">近日课程</div>' +
+      '<div class="wm-desc">今天起三天的课程安排</div></div>' +
+      '<button class="btn btn-secondary widget-add" data-widget-pin="recent">添加到桌面</button></div>' +
+    '</div>' +
+    '<div class="widget-hint">点"添加到桌面"后系统会弹出放置确认框。<br/>' +
+    '若桌面不支持一键添加：长按桌面空白处 → 小部件 → 搜索"今日课程"/"近日课程"。</div>' +
+    '</div>';
+  openCustomModal('课表小组件', html);
+}
+
+/** 调用原生 requestPinAppWidget 一键放置 */
+function requestPinWidget(which){
+  var cap = window.Capacitor;
+  var bridge = cap && cap.Plugins && cap.Plugins.WidgetBridge;
+  if(!bridge || typeof bridge.requestPin !== 'function'){
+    toast('请在手机上使用该功能');
+    return;
+  }
+  Promise.resolve(bridge.requestPin({ widget: which })).then(function(res){
+    if(res && res.supported === false){
+      toast('当前桌面不支持一键添加，请长按桌面手动添加');
+    } else {
+      toast('请在系统弹窗中确认放置');
+    }
+  }).catch(function(err){
+    console.warn('[widget] requestPin 失败:', err);
+    toast('添加失败，请长按桌面手动添加');
+  });
+}
+
 /* ============ SCHEDULE (课表) ============ */
 var schViewWeek = 0;   // 当前查看的周（0=当前周，-1=上周，+1=下周）
 
@@ -3131,7 +3259,8 @@ function renderSchedule(){
       '<div class="se-msg">还没有学期</div>'+
       '<div class="se-hint">创建学期并导入课表，<br/>即可在周视图上查看课程安排</div></div>'+
       '<div class="schedule-actions"><button class="btn btn-primary" id="schNewSemester">＋ 创建学期</button>'+
-      '<button class="btn btn-secondary" id="schImportExcel">📄 导入 Excel</button></div>';
+      '<button class="btn btn-secondary" id="schImportExcel">📄 导入 Excel</button></div>'+
+      '<div class="schedule-actions"><button class="btn btn-secondary" id="schWidgetEntry">📲 添加到桌面</button></div>';
     return;
   }
 
@@ -3199,10 +3328,13 @@ function renderSchedule(){
 
   // WakeUp 式信息栏：大字"第N周 周X"，小字日期·学期名，右侧周导航
   var nowDate = new Date();
+  var widgetBtnHtml = '<button class="schedule-widget-btn" id="schWidgetEntry" title="添加到桌面">' +
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="3" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.6v6.2M5.4 7.9 8 10.5l2.6-2.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '桌面</button>';
   var heroHtml = '<div class="schedule-header">' +
     '<div class="schedule-hero"><div class="sh-week">第'+viewWeek+'周 '+WEEKDAY_NAMES[todayDow]+'</div>' +
     '<div class="sh-date">'+nowDate.getFullYear()+'/'+(nowDate.getMonth()+1)+'/'+nowDate.getDate()+' · '+escapeHtml(semester.name)+'</div></div>' +
-    weekNav +
+    widgetBtnHtml + weekNav +
     '</div>';
 
   // 空课表提示
