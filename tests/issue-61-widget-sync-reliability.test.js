@@ -28,7 +28,8 @@ test('syncScheduleWidget: 插件不可用/调用失败均有可观测警告', ()
   assert.match(HTML, /WidgetBridge 插件不可用/);
   assert.match(HTML, /saveToday 失败:/);
   assert.match(HTML, /window\.__widgetSyncAt = Date\.now\(\)/);
-  assert.match(HTML, /Promise\.resolve\(bridge\.saveToday\(\{ payload: JSON\.stringify\(payload\) \}\)\)/);
+  // issue-66 起 saveToday 改为同时下发 payload 与 gridPayload
+  assert.match(HTML, /Promise\.resolve\(bridge\.saveToday\(\{\s*payload: JSON\.stringify\(payload\),/);
 });
 
 test('回前台（appStateChange isActive=true）触发同步', () => {

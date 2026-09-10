@@ -441,6 +441,17 @@
   .wpr-course .wpr-name{font-size:9px;font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .wpr-course .wpr-sub{font-size:8px;opacity:.9;}
   .wpr-empty{font-size:9px;opacity:.6;}
+  /* 课表网格小组件预览：星期表头 + 时间列 + 彩色课程块（与原生 widget_schedule 同构） */
+  .wpg-wrap{margin-top:6px;}
+  .wpg-head,.wpg-row{display:flex;gap:2px;}
+  .wpg-head{margin-bottom:4px;}
+  .wpg-row{margin-bottom:2px;}
+  .wpg-tcol{width:22px;flex:0 0 22px;font-size:7px;opacity:.6;display:flex;align-items:center;justify-content:center;}
+  .wpg-hd{flex:1;min-width:0;text-align:center;font-size:8px;opacity:.9;line-height:1.15;border-radius:5px;padding:1px 0;}
+  .wpg-hd.is-today{background:rgba(245,197,24,.2);color:#F5C518;font-weight:700;opacity:1;}
+  .wpg-cell{flex:1;min-width:0;background:rgba(255,255,255,.1);border-radius:5px;min-height:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1px;overflow:hidden;}
+  .wpg-name{font-size:7px;font-weight:600;line-height:1.15;text-align:center;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;}
+  .wpg-room{font-size:6px;opacity:.85;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
   .widget-row{display:flex;align-items:center;gap:10px;}
   .widget-meta{flex:1;min-width:0;}
   .widget-meta .wm-name{font-size:13px;font-weight:600;color:var(--text);}
@@ -937,7 +948,7 @@
 <script type="module">
 "use strict";
 import { getTodayStr, formatDateHeader, getGreetingByHour, getDailyQuote, deleteChecklistItem, hasImage, buildFolderContents, deleteSelectedItems, clearFolderContents, getDayMarks, PRIORITY_META, getPriorityMeta, sortByPriority, collectPrioritizedRecords, getThemeVars, normalizeTheme, THEME_TOKENS, STYLE_LIST, getStyleLabel, normalizeStyle, getStyleTokens, getDefaultSettings, normalizeSettings, buildExportFilename, describeExportLocation, sanitizeFileName, normalizeExportDir, supportsDirectoryPicker, buildExportTarget, isLeapYear, daysInMonth, buildDateWheelOptions, buildTimeWheelOptions, clampDay, wheelValue, wheelIndex, formatWheelDate, formatWheelTime, getNowTime, parseWheelDate, parseWheelTime, formatBytes, estimateDataUrlBytes, computeResize, isQuotaError, describeStorageError, IMAGE_LIMITS, RECORD_IMAGE_LIMITS, sumImageBytes, shouldCompressImage, countLargeImages, estimateStringBytes, IMAGE_VIEWER_LIMITS, clampScale, nextImageScale, toggleImageScale, DEFAULT_REMINDER_PLAN, normalizeReminderPlan, formatReminderLabel, combineDateTime, buildReminderLeads, buildReminderSchedule, IDB_NAME, STORES, LEGACY_LS_KEY, noteRowBytes, FONT_SIZE_OPTIONS, TEXT_COLOR_OPTIONS, TEXT_COLOR_PRESETS, FONT_SIZE_SCALE, normalizeFontSize, normalizeTextColor, isHexColor, customTextColorVars, textShadowForHex, getFontScale, repairRecordId, MAX_IMAGES_PER_RECORD, normalizeImageIds, recordImageIds, isImageIdUsed, collectUsedImageIds, buildImageGridHtml, nextImageIndex, formatImageCounter, CRASH_LOG_KEY, BOOT_STAGES, buildCrashReport, BOOT_STORE_TIMEOUT, BOOT_WATCHDOG_DELAY, BOOT_TIMEOUT_SENTINEL, isBootTimeout, raceTimeout, MAX_NOTIFICATION_ID, notificationIdFor, isValidNotificationId, buildCancelPayload, shouldCallCancel, PLUGIN_CALL_KEY, markPluginCall, clearPluginCall, readUnfinishedPluginCall, buildPluginCrashHint } from './src/app-core.js';
-import { getDefaultSchedule, normalizeSchedule, getCurrentWeek, isSessionActiveInWeek, parseTimeField, parseWeekField, parseTeacherField, sessionBlockIndices, colorForCourse, getWeekInfo, getSessionsForDay, getActiveSemester, newSessionId, newSemesterId, DEFAULT_PERIOD_BLOCKS, WEEKDAY_NAMES, COURSE_COLORS, weekdayDateNums, buildWidgetPayload, pickRoomColumn } from './src/schedule-core.js';
+import { getDefaultSchedule, normalizeSchedule, getCurrentWeek, isSessionActiveInWeek, parseTimeField, parseWeekField, parseTeacherField, sessionBlockIndices, colorForCourse, getWeekInfo, getSessionsForDay, getActiveSemester, newSessionId, newSemesterId, DEFAULT_PERIOD_BLOCKS, WEEKDAY_NAMES, COURSE_COLORS, weekdayDateNums, buildWidgetPayload, buildWidgetGridPayload, pickRoomColumn } from './src/schedule-core.js';
 import { playSound } from './src/sound.js';
 import { getNavItems } from './src/sidebar.js';
 import { NoteDB, compressImage, sha256Hex } from './src/note-db.js';
@@ -1230,7 +1241,11 @@ function syncScheduleWidget(){
       return;
     }
     var payload = buildWidgetPayload(DB.courseSchedule, TODAY, 3);
-    Promise.resolve(bridge.saveToday({ payload: JSON.stringify(payload) })).then(function(){
+    var gridPayload = buildWidgetGridPayload(DB.courseSchedule, TODAY, { maxRows: 5 });
+    Promise.resolve(bridge.saveToday({
+      payload: JSON.stringify(payload),
+      gridPayload: JSON.stringify(gridPayload)
+    })).then(function(){
       window.__widgetSyncAt = Date.now();
     }).catch(function(err){
       console.warn('[widget] saveToday 失败:', err);
@@ -3202,14 +3217,48 @@ function widgetRecentPreviewHtml(){
     '<div class="wpr-wrap">'+cols+'</div></div>';
 }
 
+/** 课表网格小组件预览：整周课表（星期表头 + 时间列 + 彩色课程块），与原生布局同构 */
+function widgetGridPreviewHtml(){
+  var g = buildWidgetGridPayload(DB.courseSchedule, TODAY, { maxRows: 5 });
+  var head = '<div class="wpg-head"><span class="wpg-tcol"></span>' +
+    g.weekdays.map(function(w){
+      return '<span class="wpg-hd'+(w.isToday?' is-today':'')+'">'+escapeHtml(w.label)+'<br/>'+w.dateNum+'</span>';
+    }).join('') + '</div>';
+  var body = '';
+  if(!g.rows.length){
+    body = '<div class="wp-empty">'+(g.hasSemester ? '本周暂无课程' : '先在课表页创建学期并导入课表')+'</div>';
+  } else {
+    g.rows.forEach(function(r){
+      body += '<div class="wpg-row"><span class="wpg-tcol">'+escapeHtml(r.time||'')+'</span>' +
+        r.cells.map(function(c){
+          if(!c) return '<span class="wpg-cell"></span>';
+          return '<span class="wpg-cell" style="background:'+colorForCourse(c.name)+'">' +
+            '<span class="wpg-name">'+escapeHtml(c.name)+'</span>' +
+            (c.room ? '<span class="wpg-room">'+escapeHtml(c.room)+'</span>' : '') +
+            '</span>';
+        }).join('') + '</div>';
+    });
+  }
+  return '<div class="wp-card"><div class="wp-head"><span class="wp-bar"></span>' +
+    '<span class="wp-date">'+escapeHtml(g.dateLabel||'')+' '+escapeHtml(g.dowName||'')+'</span>' +
+    (g.weekLabel ? '<span class="wp-week">'+escapeHtml(g.weekLabel)+'</span>' : '') +
+    '</div><div class="wpg-wrap">'+head+body+'</div></div>';
+}
+
 /** 打开小组件面板 */
 function openWidgetPanel(){
   var html = '<div class="widget-panel">' +
     '<div class="widget-block">' +
+      '<div class="widget-preview">'+widgetGridPreviewHtml()+'</div>' +
+      '<div class="widget-row"><div class="widget-meta"><div class="wm-name">课表网格</div>' +
+      '<div class="wm-desc">整周课程表，星期/节次一目了然（4×3 可缩放）</div></div>' +
+      '<button class="btn btn-primary widget-add" data-widget-pin="grid">添加到桌面</button></div>' +
+    '</div>' +
+    '<div class="widget-block">' +
       '<div class="widget-preview">'+widgetTodayPreviewHtml()+'</div>' +
       '<div class="widget-row"><div class="widget-meta"><div class="wm-name">今日课程</div>' +
       '<div class="wm-desc">今天的课程、时间与教室</div></div>' +
-      '<button class="btn btn-primary widget-add" data-widget-pin="today">添加到桌面</button></div>' +
+      '<button class="btn btn-secondary widget-add" data-widget-pin="today">添加到桌面</button></div>' +
     '</div>' +
     '<div class="widget-block">' +
       '<div class="widget-preview">'+widgetRecentPreviewHtml()+'</div>' +
@@ -3218,7 +3267,7 @@ function openWidgetPanel(){
       '<button class="btn btn-secondary widget-add" data-widget-pin="recent">添加到桌面</button></div>' +
     '</div>' +
     '<div class="widget-hint">点"添加到桌面"后系统会弹出放置确认框。<br/>' +
-    '若桌面不支持一键添加：长按桌面空白处 → 小部件 → 搜索"今日课程"/"近日课程"。</div>' +
+    '若桌面不支持一键添加：长按桌面空白处 → 小部件 → 搜索"课表网格"/"今日课程"/"近日课程"。</div>' +
     '</div>';
   openCustomModal('课表小组件', html);
 }

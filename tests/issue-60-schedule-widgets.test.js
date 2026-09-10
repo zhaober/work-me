@@ -65,7 +65,8 @@ test('buildWidgetPayload: maxPerDay 截断但 total 保留全量', () => {
 test('JS 桥接：syncScheduleWidget 定义并在 saveDB 与 boot 挂载', () => {
   assert.match(HTML, /function syncScheduleWidget\(\)/);
   assert.match(HTML, /window\.Capacitor[\s\S]*?Plugins[\s\S]*?WidgetBridge/);
-  assert.match(HTML, /bridge\.saveToday\(\{ payload: JSON\.stringify\(payload\) \}\)/);
+  // issue-66 起 saveToday 同时下发今日/近日与课表网格两份数据
+  assert.match(HTML, /bridge\.saveToday\(\{\s*payload: JSON\.stringify\(payload\),\s*gridPayload: JSON\.stringify\(gridPayload\)\s*\}\)/);
   assert.match(HTML, /function saveDB\(\)\{\s*\n\s*syncScheduleWidget\(\);/);
   assert.match(HTML, /renderSchedule\(\);\s*\n\s*syncScheduleWidget\(\);\s*\n\s*maybeAutoShowQuote\(\);/);
   assert.match(HTML, /buildWidgetPayload[\s\S]*?} from '\.\/src\/schedule-core\.js';/);
@@ -93,7 +94,9 @@ test('原生：layouts / widget-info / drawable / strings 资源齐全', () => {
   const p = f => existsSync(new URL(f, APK_ROOT));
   assert.ok(p('res/layout/widget_today.xml'));
   assert.ok(p('res/layout/widget_recent.xml'));
-  assert.ok(p('res/drawable/widget_bg.xml'));
+  // issue-66 起统一为深色卡片 + 预置圆角色块，旧浅色背景已移除
+  assert.ok(p('res/drawable/widget_bg_dark.xml'));
+  assert.ok(p('res/drawable/wc_bg_empty.xml'));
   assert.ok(p('res/xml/widget_today_info.xml'));
   assert.ok(p('res/xml/widget_recent_info.xml'));
   const strings = readFileSync(new URL('res/values/strings.xml', APK_ROOT), 'utf8');

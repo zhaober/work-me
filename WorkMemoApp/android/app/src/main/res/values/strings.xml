@@ -6,6 +6,8 @@
     <string name="custom_url_scheme">com.workmemo.app</string>
     <string name="widget_today_label">今日课程</string>
     <string name="widget_recent_label">近日课程</string>
+    <string name="widget_schedule_label">课表网格</string>
     <string name="widget_today_desc">今日课程表小组件：显示今天课程、上课时间与教室（课表 课程表 备忘录）</string>
     <string name="widget_recent_desc">近日课程表小组件：显示今天起三天的课程安排（课表 课程表 备忘录）</string>
+    <string name="widget_schedule_desc">课表网格小组件：整周课程表，星期、节次与教室一目了然（课表 课程表 课程 备忘录）</string>
 </resources>

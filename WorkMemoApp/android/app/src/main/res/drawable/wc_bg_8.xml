@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 课程色块 8：#E74C3C（与 schedule-core.COURSE_COLORS[8] 严格一致） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#E74C3C" />
+    <corners android:radius="6dp" />
+</shape>

@@ -1,30 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 今日课程小组件（2x2） -->
+<!-- 今日课程小组件（2x2）：深色卡片 + 黄色强调条 + 彩色课程块（仿参考图风格） -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/wt_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/widget_bg"
+    android:background="@drawable/widget_bg_dark"
     android:padding="12dp">
 
-    <TextView
-        android:id="@+id/wt_date"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="今日课程"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:textColor="#E64A19" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <View
+            android:layout_width="3dp"
+            android:layout_height="13dp"
+            android:layout_marginEnd="6dp"
+            android:background="#F5C518" />
+
+        <TextView
+            android:id="@+id/wt_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="今日课程"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/wt_c1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textSize="11sp"
+        android:layout_marginTop="7dp"
+        android:padding="5dp"
+        android:background="@drawable/wc_bg_empty"
+        android:textSize="10sp"
         android:textStyle="bold"
-        android:textColor="#333333"
+        android:textColor="#FFFFFF"
         android:maxLines="2"
         android:ellipsize="end" />
 
@@ -32,10 +50,12 @@
         android:id="@+id/wt_c2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:textSize="11sp"
+        android:layout_marginTop="4dp"
+        android:padding="5dp"
+        android:background="@drawable/wc_bg_empty"
+        android:textSize="10sp"
         android:textStyle="bold"
-        android:textColor="#333333"
+        android:textColor="#FFFFFF"
         android:maxLines="2"
         android:ellipsize="end" />
 
@@ -43,10 +63,12 @@
         android:id="@+id/wt_c3"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:textSize="11sp"
+        android:layout_marginTop="4dp"
+        android:padding="5dp"
+        android:background="@drawable/wc_bg_empty"
+        android:textSize="10sp"
         android:textStyle="bold"
-        android:textColor="#333333"
+        android:textColor="#FFFFFF"
         android:maxLines="2"
         android:ellipsize="end" />
 
@@ -54,8 +76,8 @@
         android:id="@+id/wt_footer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="7dp"
         android:text="今日共 0 门"
-        android:textSize="10sp"
-        android:textColor="#999999" />
+        android:textSize="9sp"
+        android:textColor="#B3FFFFFF" />
 </LinearLayout>

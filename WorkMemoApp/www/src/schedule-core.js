@@ -168,14 +168,39 @@ export function sessionBlockIndices(periodStart, periodEnd, blocks) {
   return indices;
 }
 
-/** 基于课程名哈希生成颜色（同名课颜色一致） */
-export function colorForCourse(courseName) {
+/** 基于课程名哈希生成调色板下标（同名课下标一致，0 ~ COURSE_COLORS.length-1）
+ * 原生小组件拿不到十六进制色值去动态设圆角色块背景，改为传下标，
+ * 由 Java 侧映射到预置的圆角 drawable（wc_bg_<index>）。 */
+export function colorIndexOfCourse(courseName) {
+  var name = String(courseName == null ? '' : courseName);
   var hash = 0;
-  for (var i = 0; i < courseName.length; i++) {
-    hash = ((hash << 5) - hash) + courseName.charCodeAt(i);
+  for (var i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash) + name.charCodeAt(i);
     hash = hash & hash;
   }
-  return COURSE_COLORS[Math.abs(hash) % COURSE_COLORS.length];
+  return Math.abs(hash) % COURSE_COLORS.length;
+}
+
+/** 基于课程名哈希生成颜色（同名课颜色一致） */
+export function colorForCourse(courseName) {
+  return COURSE_COLORS[colorIndexOfCourse(courseName)];
+}
+
+/** 找到某节次所属的节次块下标（找不到返回 -1） */
+export function blockIndexForPeriod(period, blocks) {
+  var list = (Array.isArray(blocks) && blocks.length) ? blocks : DEFAULT_PERIOD_BLOCKS;
+  for (var i = 0; i < list.length; i++) {
+    var b = list[i];
+    if (period >= b.periodStart && period <= b.periodEnd) return i;
+  }
+  return -1;
+}
+
+/** 取出节次块时间标签的起始时间："08:00-09:40" → "08:00" */
+export function blockStartTime(block) {
+  if (!block) return '';
+  var parts = String(block.timeLabel || '').split(/[-\u2013\u2014]/);
+  return (parts[0] || '').trim();
 }
 
 /** 根据学期开始日期计算当前周信息 */
@@ -240,7 +265,7 @@ export function buildWidgetPayload(schedule, todayIso, maxPerDay) {
     var sessions = getSessionsForDay(semester, dow, wi.weekNum, wi.isOddWeek) || [];
     sessions = sessions.slice().sort(function(a, b) { return a.periodStart - b.periodStart; });
     return sessions.map(function(s) {
-      return { name: s.courseName, room: s.classroom || '', start: timeAt(s.periodStart, 'start'), end: timeAt(s.periodEnd, 'end') };
+      return { name: s.courseName, room: s.classroom || '', start: timeAt(s.periodStart, 'start'), end: timeAt(s.periodEnd, 'end'), colorIndex: colorIndexOfCourse(s.courseName) };
     });
   }
   var todayCourses = dayList(todayDow);
@@ -256,6 +281,88 @@ export function buildWidgetPayload(schedule, todayIso, maxPerDay) {
     dowName: WEEKDAY_NAMES[todayDow], semesterName: semester.name || '',
     today: { courses: todayCourses.slice(0, maxPerDay), total: todayCourses.length },
     recent: recent
+  };
+}
+
+/** 桌面小组件数据：整周课表网格（仿参考图 —— 深色卡 + 星期表头 + 左侧时间列 + 彩色课程块）。
+ * 原生 RemoteViews 不支持跨行合并单元格，因此一个格子 = 一个节次块 × 一天，
+ * 课程画在"起始节次所属的块"上，跨块课程用 periodLabel 标出真实节次。
+ * @param {object} schedule 全量课表
+ * @param {string} todayIso 'YYYY-MM-DD'
+ * @param {{maxRows?:number}} [opts] maxRows 默认 5（与默认 5 个节次块对齐） */
+export function buildWidgetGridPayload(schedule, todayIso, opts) {
+  opts = opts || {};
+  var maxRows = opts.maxRows || 5;
+  var blocks = (schedule && Array.isArray(schedule.periodBlocks) && schedule.periodBlocks.length)
+    ? schedule.periodBlocks : DEFAULT_PERIOD_BLOCKS;
+
+  var base = new Date((todayIso || '') + 'T00:00:00');
+  if (isNaN(base.getTime())) {
+    var now = new Date();
+    base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  var iso = base.getFullYear() + '-' + String(base.getMonth() + 1).padStart(2, '0')
+    + '-' + String(base.getDate()).padStart(2, '0');
+  var todayDow = (base.getDay() + 6) % 7; // 0=周一
+  var nums = weekdayDateNums(iso, todayDow, 0);
+  var weekdays = WEEKDAY_NAMES.map(function(n, i) {
+    return { label: n.slice(1), dateNum: nums[i], isToday: i === todayDow };
+  });
+
+  var semester = getActiveSemester(schedule);
+  var hasSemester = !!(semester && semester.startDate);
+  var wi = hasSemester ? getWeekInfo(semester.startDate, iso) : { weekNum: 0, isOddWeek: true };
+  var rows = [];
+
+  if (semester) {
+    // 每个星期先算出本周生效的课节（按起始节次升序），再统一挑选要显示的节次块
+    var dayCache = [];
+    var used = {};
+    for (var dow = 0; dow < 7; dow++) {
+      var list = getSessionsForDay(semester, dow, wi.weekNum, wi.isOddWeek).slice()
+        .sort(function(a, b) { return a.periodStart - b.periodStart; });
+      dayCache.push(list);
+      for (var k = 0; k < list.length; k++) {
+        var bi0 = blockIndexForPeriod(list[k].periodStart, blocks);
+        if (bi0 >= 0) used[bi0] = true;
+      }
+    }
+    // 只显示"本周确实有课"的节次块；整周无课时退回前 maxRows 个块，保持网格形态
+    var rowBlocks = Object.keys(used).map(Number).sort(function(a, b) { return a - b; });
+    if (!rowBlocks.length) rowBlocks = blocks.map(function(_, i) { return i; });
+    rowBlocks = rowBlocks.slice(0, maxRows);
+
+    rows = rowBlocks.map(function(bi) {
+      var b = blocks[bi] || {};
+      var cells = [];
+      for (var d = 0; d < 7; d++) {
+        var hit = null;
+        var day = dayCache[d];
+        for (var j = 0; j < day.length; j++) {
+          if (blockIndexForPeriod(day[j].periodStart, blocks) === bi) { hit = day[j]; break; }
+        }
+        cells.push(hit ? {
+          name: hit.courseName || '',
+          room: hit.classroom || '',
+          colorIndex: colorIndexOfCourse(hit.courseName),
+          periodLabel: hit.periodStart === hit.periodEnd
+            ? hit.periodStart + '节'
+            : hit.periodStart + '-' + hit.periodEnd + '节'
+        } : null);
+      }
+      return { blockIndex: bi, time: blockStartTime(b), label: b.label || '', cells: cells };
+    });
+  }
+
+  return {
+    hasSemester: hasSemester,
+    weekNum: wi.weekNum,
+    weekLabel: hasSemester ? '第' + wi.weekNum + '周' : '',
+    dateLabel: iso.replace(/-/g, '.'),
+    dowName: WEEKDAY_NAMES[todayDow],
+    weekdays: weekdays,
+    rowCount: rows.length,
+    rows: rows
   };
 }
 

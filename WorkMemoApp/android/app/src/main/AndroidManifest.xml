@@ -48,6 +48,18 @@
                 android:resource="@xml/widget_recent_info" />
         </receiver>
 
+        <receiver
+            android:name=".ScheduleWidgetProvider"
+            android:label="@string/widget_schedule_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_schedule_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

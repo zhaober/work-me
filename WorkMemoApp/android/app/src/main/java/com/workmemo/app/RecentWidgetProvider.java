@@ -77,11 +77,15 @@ public class RecentWidgetProvider extends AppWidgetProvider {
                                     + (room.isEmpty() ? "" : " · " + room)
                                     + "\n" + c.optString("start", "");
                             v.setTextViewText(DAY_SLOTS[d][s], text);
+                            // 彩色圆角块：colorIndex 由 JS 侧算好并下发
+                            v.setInt(DAY_SLOTS[d][s], "setBackgroundResource",
+                                    ScheduleWidgetProvider.colorRes(c.optInt("colorIndex", 0)));
                             v.setViewVisibility(DAY_SLOTS[d][s], View.VISIBLE);
                         }
                     }
                     if (total == 0) {
                         v.setTextViewText(DAY_SLOTS[d][0], "无课");
+                        v.setInt(DAY_SLOTS[d][0], "setBackgroundResource", R.drawable.wc_bg_empty);
                         v.setViewVisibility(DAY_SLOTS[d][0], View.VISIBLE);
                     }
                 }

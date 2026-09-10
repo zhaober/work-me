@@ -52,6 +52,9 @@ public class TodayWidgetProvider extends AppWidgetProvider {
                                     + "\n" + start
                                     + (end.isEmpty() ? "" : " - " + end);
                             v.setTextViewText(slots[i], text);
+                            // 彩色圆角块：colorIndex 由 JS 侧算好并下发
+                            v.setInt(slots[i], "setBackgroundResource",
+                                    ScheduleWidgetProvider.colorRes(c.optInt("colorIndex", 0)));
                             v.setViewVisibility(slots[i], View.VISIBLE);
                         } else {
                             v.setViewVisibility(slots[i], View.GONE);

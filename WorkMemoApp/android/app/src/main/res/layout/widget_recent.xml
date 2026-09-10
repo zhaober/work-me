@@ -1,28 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 近日课程小组件（4x2）：今天/明天/后天 三列 -->
+<!-- 近日课程小组件（4x2）：深色卡片 + 黄色强调条 + 今天/明天/后天三列彩色课程块 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/wr_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/widget_bg"
+    android:background="@drawable/widget_bg_dark"
     android:padding="12dp">
 
-    <TextView
-        android:id="@+id/wr_title"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="近日课程"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:textColor="#E64A19" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <View
+            android:layout_width="3dp"
+            android:layout_height="13dp"
+            android:layout_marginEnd="6dp"
+            android:background="#F5C518" />
+
+        <TextView
+            android:id="@+id/wr_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="近日课程"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:orientation="horizontal"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="7dp">
 
         <LinearLayout
             android:layout_width="0dp"
@@ -36,36 +52,42 @@
                 android:layout_height="wrap_content"
                 android:textSize="10sp"
                 android:textStyle="bold"
-                android:textColor="#666666" />
+                android:textColor="#CCFFFFFF" />
 
             <TextView
                 android:id="@+id/wr_d1_c1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="5dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/wr_d1_c2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="4dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/wr_d1_c3"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="4dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
         </LinearLayout>
 
@@ -74,7 +96,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:paddingStart="10dp">
+            android:paddingStart="8dp">
 
             <TextView
                 android:id="@+id/wr_d2_date"
@@ -82,36 +104,42 @@
                 android:layout_height="wrap_content"
                 android:textSize="10sp"
                 android:textStyle="bold"
-                android:textColor="#666666" />
+                android:textColor="#CCFFFFFF" />
 
             <TextView
                 android:id="@+id/wr_d2_c1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="5dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/wr_d2_c2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="4dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/wr_d2_c3"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="4dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
         </LinearLayout>
 
@@ -120,7 +148,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:paddingStart="10dp">
+            android:paddingStart="8dp">
 
             <TextView
                 android:id="@+id/wr_d3_date"
@@ -128,36 +156,42 @@
                 android:layout_height="wrap_content"
                 android:textSize="10sp"
                 android:textStyle="bold"
-                android:textColor="#666666" />
+                android:textColor="#CCFFFFFF" />
 
             <TextView
                 android:id="@+id/wr_d3_c1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="5dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/wr_d3_c2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="4dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
 
             <TextView
                 android:id="@+id/wr_d3_c3"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="4dp"
+                android:padding="4dp"
+                android:background="@drawable/wc_bg_empty"
                 android:textSize="9sp"
-                android:textColor="#333333"
-                android:maxLines="2"
+                android:textColor="#FFFFFF"
+                android:maxLines="3"
                 android:ellipsize="end" />
         </LinearLayout>
     </LinearLayout>
