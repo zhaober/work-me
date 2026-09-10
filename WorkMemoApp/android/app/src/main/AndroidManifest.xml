@@ -80,4 +80,9 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- 系统通知（弹窗提醒）：Android 13+ 必须声明并在运行时请求，否则通知不显示 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 一键添加桌面小组件：小米/红米等 ROM 把 requestPinAppWidget 与「桌面快捷方式」
+         权限挂钩，未授予时会**静默失败**（不弹框、也不添加）。声明这两个权限后，
+         系统权限页才会出现「桌面快捷方式」开关供用户开启。 -->
+    <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+    <uses-permission android:name="com.android.launcher.permission.UNINSTALL_SHORTCUT" />
 </manifest>

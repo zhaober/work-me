@@ -458,6 +458,8 @@
   .widget-meta .wm-desc{font-size:11px;color:var(--text-3);}
   .widget-add{white-space:nowrap;flex-shrink:0;}
   .widget-hint{font-size:11px;color:var(--text-3);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;}
+  .widget-status{font-size:10px;color:var(--text-3);line-height:1.5;word-break:break-all;}
+  .widget-status:empty{display:none;}
   .schedule-week-nav{display:flex;align-items:center;gap:4px;}
   .schedule-week-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:var(--card);border-radius:8px;color:var(--text-2);cursor:pointer;}
   .schedule-week-label{font-size:13px;font-weight:600;color:var(--text);min-width:44px;text-align:center;}
@@ -2705,6 +2707,7 @@ function initAppStateListener(){
     if(Cap && Cap.Plugins && Cap.Plugins.App && typeof Cap.Plugins.App.addListener === 'function'){
       Cap.Plugins.App.addListener('appStateChange', function(state){
         if(state && state.isActive){ syncScheduleWidget();
+          try { refreshWidgetPinStatus(); } catch(e){ /* 小组件确认失败不影响主功能 */ }
           try { rescheduleAllNotifications(); } catch(e){ /* 通知失败不影响主功能 */ }
         } else {
           /* 切后台/退出（isActive=false）：立即落盘。
@@ -3266,10 +3269,56 @@ function openWidgetPanel(){
       '<div class="wm-desc">今天起三天的课程安排</div></div>' +
       '<button class="btn btn-secondary widget-add" data-widget-pin="recent">添加到桌面</button></div>' +
     '</div>' +
-    '<div class="widget-hint">点"添加到桌面"后系统会弹出放置确认框。<br/>' +
-    '若桌面不支持一键添加：长按桌面空白处 → 小部件 → 搜索"课表网格"/"今日课程"/"近日课程"。</div>' +
+    '<div class="widget-hint">' +
+    '小米/红米等手机<b>不会弹确认框</b>：点完小组件就直接放到桌面了，' +
+    '桌面当前页放不下时会<b>自动新增一页</b>，请左右滑动找一找。<br/>' +
+    '若始终没出现，按这两步手动添加：<br/>' +
+    '① 设置 → 应用管理 → 工作备忘录 → 权限，打开<b>「桌面快捷方式」</b>；<br/>' +
+    '② 长按桌面空白处 → 添加小部件 → 搜索"课表网格"/"今日课程"/"近日课程"。' +
+    '</div>' +
+    '<div class="widget-status" id="widgetPinStatus">'+widgetPinStatusHtml()+'</div>' +
     '</div>';
   openCustomModal('课表小组件', html);
+  refreshWidgetPinStatus();
+}
+
+/** 上一次一键添加的原生返回值（低干扰的诊断行，便于用户反馈时截图） */
+function widgetPinStatusHtml(){
+  var last = window.__lastPin;
+  if(!last) return '';
+  var r = last.res || {};
+  var bits = ['reason=' + (r.reason || '?')];
+  if(r.launched !== undefined) bits.push('launched=' + r.launched);
+  if(r.apiSupported !== undefined) bits.push('apiSupported=' + r.apiSupported);
+  if(r.message) bits.push('msg=' + r.message);
+  return '最近一次请求（' + escapeHtml(last.which) + '）：' + escapeHtml(bits.join(' · '));
+}
+
+/** 向原生要"上次一键添加到底成没成"的确定结论 */
+function refreshWidgetPinStatus(){
+  var cap = window.Capacitor;
+  var bridge = cap && cap.Plugins && cap.Plugins.WidgetBridge;
+  if(!bridge || typeof bridge.consumePinResult !== 'function') return;
+  Promise.resolve(bridge.consumePinResult()).then(function(res){
+    if(!res || !res.pending) return;
+    window.__lastPin = window.__lastPin || {};
+    window.__lastPin.result = res;
+    var el = document.getElementById('widgetPinStatus');
+    if(res.added){
+      if(el) el.innerHTML = '<b>✓ 已检测到桌面新增了「' + escapeHtml(widgetLabel(res.widget)) + '」</b>';
+      toast('已添加到桌面' + (res.after > 1 ? '' : '（可能在新增的一页，请左右滑动查看）'));
+    } else if(res.unknown){
+      if(el) el.innerHTML = '未能确认结果，请左右滑动查看桌面，或按上面的步骤手动添加。';
+    } else {
+      if(el) el.innerHTML = '<b>未检测到桌面新增小组件</b>，请按上面的步骤手动添加。';
+      toast('未检测到桌面新增小组件，请按提示手动添加');
+    }
+  }).catch(function(err){ console.warn('[widget] consumePinResult 失败:', err); });
+}
+
+/** widget 标识 → 中文名 */
+function widgetLabel(which){
+  return which === 'grid' ? '课表网格' : (which === 'recent' ? '近日课程' : '今日课程');
 }
 
 /** 调用原生 requestPinAppWidget 一键放置 */
@@ -3281,10 +3330,17 @@ function requestPinWidget(which){
     return;
   }
   Promise.resolve(bridge.requestPin({ widget: which })).then(function(res){
-    if(res && res.supported === false){
-      toast('当前桌面不支持一键添加，请长按桌面手动添加');
+    window.__lastPin = { which: which, at: Date.now(), res: res || {} };
+    var el = document.getElementById('widgetPinStatus');
+    if(el) el.innerHTML = widgetPinStatusHtml();
+    if(res && res.launched === false){
+      // 桌面没有受理：区分"根本不支持"和"支持但没落地"
+      toast(res.apiSupported === false
+        ? '当前桌面不支持一键添加，请长按桌面手动添加'
+        : '桌面未响应该请求，请按提示手动添加');
     } else {
-      toast('请在系统弹窗中确认放置');
+      // 小米/红米等不会弹确认框，说"请确认弹窗"会让人以为失败了
+      toast('已请求添加：部分手机会直接放到桌面（可能新增一页），请左右滑动查看');
     }
   }).catch(function(err){
     console.warn('[widget] requestPin 失败:', err);
